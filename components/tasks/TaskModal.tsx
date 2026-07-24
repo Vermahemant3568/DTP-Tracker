@@ -43,9 +43,9 @@ const baseSchema = z.object({
     (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
     z.number().int().positive("Final pages must be positive")
   ),
-  source_file_link:    z.string().default(""),
-  deliverable_link:    z.string().default(""),
-  task_notes:          z.string().default(""),
+  source_file_link:    z.string(),
+  deliverable_link:    z.string(),
+  task_notes:          z.string(),
   status:              z.enum(["pending", "in_progress", "completed", "on_hold", "cancelled"]),
 });
 

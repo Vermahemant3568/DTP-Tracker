@@ -28,9 +28,9 @@ const REVISION_TYPES: { value: RevisionType; label: string; color: string; activ
 const baseSchema = z.object({
   revision_type:    z.enum(["General", "Client", "QA", "Proofreading", "Internal"]),
   work_type:        z.enum(["Inhouse", "Vendor"]),
-  assigned_to_id:   z.string().default(""),
+  assigned_to_id:   z.string(),
   assigned_to_type: z.enum(["Employee", "Vendor"]),
-  language_ids:     z.array(z.string()).default([]),
+  language_ids:     z.array(z.string()),
   revision_pages:   z.preprocess(
     (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
     z.number().int().positive("Revision pages must be positive")
@@ -40,7 +40,7 @@ const baseSchema = z.object({
     z.number().nonnegative("Must be ≥ 0").nullable()
   ),
   payment_status:   z.enum(["Paid", "Unpaid"]),
-  revision_notes:   z.string().default(""),
+  revision_notes:   z.string(),
 });
 
 type FormValues = z.infer<typeof baseSchema>;

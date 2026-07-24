@@ -12,7 +12,7 @@ import type { Job } from "@/types/database";
 
 const schema = z.object({
   job_code: z.string().min(1, "Job code is required"),
-  notes:    z.string().default(""),
+  notes:    z.string(),
 });
 
 type FormValues = z.infer<typeof schema>;

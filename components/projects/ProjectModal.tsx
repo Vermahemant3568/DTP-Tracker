@@ -34,16 +34,16 @@ const STATUS_OPTIONS: { value: ProjectStatus; label: string; cls: string; select
 const schema = z.object({
   client_id:           z.string().min(1, "Client is required"),
   project_name:        z.string().min(1, "Project name is required").max(200),
-  coordinator_id:      z.string().default(""),
+  coordinator_id:      z.string(),
   received_date:       z.string().min(1, "Received date is required"),
-  source_language_id:  z.string().default(""),
+  source_language_id:  z.string(),
   target_language_ids: z.array(z.string()).min(1, "Select at least one target language"),
   source_file_pages:   z.preprocess(
     (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
     z.number().int().positive("Must be a positive number").nullable()
   ),
-  project_notes: z.string().default(""),
-  status:        z.string().default("pending"),
+  project_notes: z.string(),
+  status:        z.string(),
 });
 
 type FormValues = z.infer<typeof schema>;

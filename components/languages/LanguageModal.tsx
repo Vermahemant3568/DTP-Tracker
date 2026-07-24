@@ -14,9 +14,9 @@ import type { Language } from "@/types/database";
 
 const schema = z.object({
   language_name: z.string().min(1, "Language name is required").max(100),
-  language_code: z.string().max(10).default(""),
-  language_type: z.enum(["source", "target", "both"]).default("both"),
-  status:        z.enum(["active", "inactive"]).default("active"),
+  language_code: z.string().max(10),
+  language_type: z.enum(["source", "target", "both"]),
+  status:        z.enum(["active", "inactive"]),
 });
 
 type FormValues = z.infer<typeof schema>;

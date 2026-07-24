@@ -12,8 +12,8 @@ import type { TaskType } from "@/types/database";
 
 const schema = z.object({
   name:        z.string().min(1, "Name is required").max(100),
-  description: z.string().default(""),
-  status:      z.enum(["active", "inactive"]).default("active"),
+  description: z.string(),
+  status:      z.enum(["active", "inactive"]),
 });
 
 type FormValues = z.infer<typeof schema>;

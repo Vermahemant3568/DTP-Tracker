@@ -14,12 +14,12 @@ import type { Client } from "@/types/database";
 
 const schema = z.object({
   company_name:   z.string().min(1, "Company name is required").max(200),
-  contact_person: z.string().default(""),
-  email:          z.string().email("Invalid email").or(z.literal("")).default(""),
-  phone:          z.string().default(""),
-  address:        z.string().default(""),
-  country:        z.string().default(""),
-  status:         z.enum(["active", "inactive"]).default("active"),
+  contact_person: z.string(),
+  email:          z.string().email("Invalid email").or(z.literal("")),
+  phone:          z.string(),
+  address:        z.string(),
+  country:        z.string(),
+  status:         z.enum(["active", "inactive"]),
 });
 
 type FormValues = z.infer<typeof schema>;
