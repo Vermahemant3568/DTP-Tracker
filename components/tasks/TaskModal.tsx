@@ -16,11 +16,11 @@ import { fetchEmployees }           from "@/services/employeeService";
 import { fetchVendors }             from "@/services/vendorService";
 import { fetchProjectLanguages }    from "@/services/projectService";
 import { insertTask, updateTask }   from "@/services/taskService";
-import type { Task, TaskFormValues, TaskType, Employee, Vendor } from "@/types/database";
+import type { Task, TaskType, Employee, Vendor } from "@/types/database";
 
 // ── Schema ────────────────────────────────────────────────────
 
-const schema = z.object({
+const baseSchema = z.object({
   task_type_id:        z.string().min(1, "Task type is required"),
   work_type:           z.enum(["Inhouse", "Vendor"]),
   assigned_to_id:      z.string().min(1, "Assignee is required"),
@@ -47,7 +47,11 @@ const schema = z.object({
   deliverable_link:    z.string().default(""),
   task_notes:          z.string().default(""),
   status:              z.enum(["pending", "in_progress", "completed", "on_hold", "cancelled"]),
-}).refine(
+});
+
+type FormValues = z.infer<typeof baseSchema>;
+
+const schema = baseSchema.refine(
   (d) => d.payment_status === "Unpaid" || (d.rate_per_page !== null && d.rate_per_page > 0),
   { message: "Rate per page is required when Paid", path: ["rate_per_page"] }
 );
@@ -78,7 +82,7 @@ interface ProjectLang {
   isSource:      boolean;
 }
 
-const defaultValues: TaskFormValues = {
+const defaultValues: FormValues = {
   task_type_id: "", work_type: "Inhouse", assigned_to_id: "",
   assigned_to_type: "Employee", task_language_ids: [],
   payment_status: "Unpaid", rate_per_page: null,
@@ -99,7 +103,7 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
   const [finalOverride, setFinalOverride] = useState(false);
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors, isSubmitting } } =
-    useForm<TaskFormValues>({ resolver: zodResolver(schema) as any, defaultValues }); // eslint-disable-line
+    useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   const workType       = watch("work_type");
   const sourcePagesVal = watch("source_pages");
@@ -189,7 +193,7 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
     }
   }, [task, reset]);
 
-  const onSubmit = async (values: TaskFormValues): Promise<void> => {
+  const onSubmit = async (values: FormValues): Promise<void> => {
     try {
       if (isEdit) {
         await updateTask(task!.id, values);
@@ -246,7 +250,7 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
             <p className="text-sm text-gray-400">Loading form data…</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit as any)} className="flex-1 overflow-y-auto"> {/* eslint-disable-line */}
+          <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto">
             <div className="px-6 py-4 space-y-5">
 
               {/* ── Section 1: Assignment ── */}

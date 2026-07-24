@@ -1,5 +1,11 @@
 import { supabase } from "@/lib/supabase";
-import type { TaskType, TaskTypeFormValues } from "@/types/database";
+import type { TaskType } from "@/types/database";
+
+interface TaskTypeInput {
+  name:        string;
+  description: string;
+  status:      "active" | "inactive";
+}
 
 const SELECT = "id, name, description, status, created_at";
 
@@ -22,7 +28,7 @@ export async function fetchAllTaskTypes(): Promise<TaskType[]> {
   return data ?? [];
 }
 
-export async function insertTaskType(values: TaskTypeFormValues): Promise<void> {
+export async function insertTaskType(values: TaskTypeInput): Promise<void> {
   const { error } = await supabase.from("task_types").insert({
     name:        values.name,
     description: values.description || null,
@@ -31,7 +37,7 @@ export async function insertTaskType(values: TaskTypeFormValues): Promise<void> 
   if (error) throw new Error(error.message);
 }
 
-export async function updateTaskType(id: string, values: TaskTypeFormValues): Promise<void> {
+export async function updateTaskType(id: string, values: TaskTypeInput): Promise<void> {
   const { error } = await supabase.from("task_types").update({
     name:        values.name,
     description: values.description || null,

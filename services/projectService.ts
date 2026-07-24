@@ -1,5 +1,17 @@
 import { supabase } from "@/lib/supabase";
-import type { Project, ProjectFormValues } from "@/types/database";
+import type { Project } from "@/types/database";
+
+interface ProjectInput {
+  client_id:           string;
+  project_name:        string;
+  coordinator_id:      string;
+  received_date:       string;
+  source_language_id:  string;
+  target_language_ids: string[];
+  source_file_pages:   number | null;
+  project_notes:       string;
+  status:              string;
+}
 
 // Re-export lookup fetchers — modal only needs one import
 export { fetchClients }                                                from "./clientService";
@@ -81,7 +93,7 @@ export async function fetchProjects(): Promise<Project[]> {
 //   3. The DB trigger on project_target_languages automatically
 //      updates projects.number_of_languages — no manual update needed.
 
-export async function insertProject(values: ProjectFormValues): Promise<string> {
+export async function insertProject(values: ProjectInput): Promise<string> {
   // Step 1 — insert project row
   const { data: project, error: projectError } = await supabase
     .from("projects")
@@ -128,7 +140,7 @@ export async function insertProject(values: ProjectFormValues): Promise<string> 
 
 export async function updateProject(
   id: string,
-  values: ProjectFormValues
+  values: ProjectInput
 ): Promise<void> {
   // Step 1 — update project row
   const { error: projectError } = await supabase

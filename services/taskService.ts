@@ -1,5 +1,22 @@
 import { supabase } from "@/lib/supabase";
-import type { Task, TaskFormValues } from "@/types/database";
+import type { Task } from "@/types/database";
+
+interface TaskInput {
+  task_type_id:        string;
+  work_type:           "Inhouse" | "Vendor";
+  assigned_to_id:      string;
+  assigned_to_type:    "Employee" | "Vendor";
+  task_language_ids:   string[];
+  payment_status:      "Paid" | "Unpaid";
+  rate_per_page:       number | null;
+  source_pages:        number | null;
+  number_of_languages: number | null;
+  final_pages:         number | null;
+  source_file_link:    string;
+  deliverable_link:    string;
+  task_notes:          string;
+  status:              "pending" | "in_progress" | "completed" | "on_hold" | "cancelled";
+}
 
 // ── Fetch all tasks for a project ─────────────────────────────
 
@@ -83,7 +100,7 @@ export async function fetchTasks(projectId: string): Promise<Task[]> {
 
 export async function insertTask(
   projectId: string,
-  values: TaskFormValues
+  values: TaskInput
 ): Promise<void> {
   const { data: task, error } = await supabase
     .from("tasks")
@@ -126,7 +143,7 @@ export async function insertTask(
 
 export async function updateTask(
   id: string,
-  values: TaskFormValues
+  values: TaskInput
 ): Promise<void> {
   const { error } = await supabase
     .from("tasks")

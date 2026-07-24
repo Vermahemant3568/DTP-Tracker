@@ -8,7 +8,7 @@ import { X, AlertTriangle, Tag } from "lucide-react";
 import { toast } from "sonner";
 
 import { insertTaskType, updateTaskType } from "@/services/taskTypeService";
-import type { TaskType, TaskTypeFormValues } from "@/types/database";
+import type { TaskType } from "@/types/database";
 
 const schema = z.object({
   name:        z.string().min(1, "Name is required").max(100),
@@ -16,7 +16,9 @@ const schema = z.object({
   status:      z.enum(["active", "inactive"]).default("active"),
 });
 
-const defaultValues: TaskTypeFormValues = { name: "", description: "", status: "active" };
+type FormValues = z.infer<typeof schema>;
+
+const defaultValues: FormValues = { name: "", description: "", status: "active" };
 
 interface Props {
   open:      boolean;
@@ -29,7 +31,7 @@ export default function TaskTypeModal({ open, taskType, onClose, onSuccess }: Pr
   const isEdit = !!taskType;
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
-    useForm<TaskTypeFormValues>({ resolver: zodResolver(schema), defaultValues });
+    useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   useEffect(() => {
     if (taskType) {
@@ -39,7 +41,7 @@ export default function TaskTypeModal({ open, taskType, onClose, onSuccess }: Pr
     }
   }, [taskType, reset]);
 
-  const onSubmit = async (values: TaskTypeFormValues) => {
+  const onSubmit = async (values: FormValues) => {
     try {
       if (isEdit) {
         await updateTaskType(taskType!.id, values);

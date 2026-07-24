@@ -16,7 +16,7 @@ import {
 } from "@/services/projectService";
 import { fetchTasks } from "@/services/taskService";
 import type {
-  Client, Employee, Language, Project, ProjectFormValues, ProjectStatus,
+  Client, Employee, Language, Project, ProjectStatus,
 } from "@/types/database";
 
 // ── Status config ─────────────────────────────────────────────
@@ -46,6 +46,8 @@ const schema = z.object({
   status:        z.string().default("pending"),
 });
 
+type FormValues = z.infer<typeof schema>;
+
 // ── Props ─────────────────────────────────────────────────────
 
 interface ProjectModalProps {
@@ -55,7 +57,7 @@ interface ProjectModalProps {
   onSuccess: () => void;
 }
 
-const defaultValues: ProjectFormValues = {
+const defaultValues: FormValues = {
   client_id: "", project_name: "", coordinator_id: "",
   received_date: new Date().toISOString().split("T")[0],
   source_language_id: "", target_language_ids: [],
@@ -76,7 +78,7 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
   const [totalTasks,      setTotalTasks]      = useState(0);
 
   const { register, handleSubmit, control, watch, reset, formState: { errors, isSubmitting } } =
-    useForm<ProjectFormValues>({ resolver: zodResolver(schema) as any, defaultValues });
+    useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   const watchedStatus  = watch("status");
   const [langSearch,   setLangSearch]   = useState("");
@@ -115,7 +117,7 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
     }
   }, [project, reset]);
 
-  const onSubmit = async (values: ProjectFormValues): Promise<void> => {
+  const onSubmit = async (values: FormValues): Promise<void> => {
     if (values.status === "completed" && openTaskCount > 0) {
       toast.error(`Cannot mark as Completed — ${openTaskCount} task${openTaskCount > 1 ? "s are" : " is"} still open.`);
       return;
@@ -171,7 +173,7 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
             <p className="text-sm text-gray-400">Loading form data…</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit as any)} className="flex-1 overflow-y-auto">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto">
             <div className="px-6 py-4 space-y-5">
 
               {/* ── Section: Basic Info ── */}

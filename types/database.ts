@@ -55,12 +55,7 @@ export interface Language {
   created_at:    string;
 }
 
-export interface LanguageFormValues {
-  language_name: string;
-  language_code: string;
-  language_type: "source" | "target" | "both";
-  status:        "active" | "inactive";
-}
+// LanguageFormValues is inferred from the Zod schema in LanguageModal
 
 export interface TaskType {
   id:          string;
@@ -70,11 +65,7 @@ export interface TaskType {
   created_at:  string;
 }
 
-export interface TaskTypeFormValues {
-  name:        string;
-  description: string;
-  status:      "active" | "inactive";
-}
+// TaskTypeFormValues is inferred from the Zod schema in TaskTypeModal
 
 // ── Projects ──────────────────────────────────────────────────
 
@@ -113,17 +104,7 @@ export interface ProjectTargetLanguage {
   languages?:  Pick<Language, "id" | "language_name"> | null;
 }
 
-export interface ProjectFormValues {
-  client_id:           string;
-  project_name:        string;
-  coordinator_id:      string;
-  received_date:       string;
-  source_language_id:  string;
-  target_language_ids: string[];
-  source_file_pages:   number | null;
-  project_notes:       string;
-  status:              ProjectStatus;
-}
+// ProjectFormValues is inferred from the Zod schema in ProjectModal
 
 // ── Tasks ─────────────────────────────────────────────────────
 
@@ -187,17 +168,7 @@ export interface TaskRevision {
   assigned_name?:   string;
 }
 
-export interface TaskRevisionFormValues {
-  revision_type:    RevisionType;
-  work_type:        WorkType;
-  assigned_to_id:   string;
-  assigned_to_type: AssignedToType;
-  language_ids:     string[];
-  revision_pages:   number | null;
-  rate_per_page:    number | null;
-  payment_status:   PaymentStatus;
-  revision_notes:   string;
-}
+// TaskRevisionFormValues is inferred from the Zod schema in RevisionModal
 
 // ── Jobs ───────────────────────────────────────────────────
 
@@ -237,24 +208,6 @@ export interface Job {
   coordinator_name?: string;
 }
 
-export interface JobFormValues {
-  job_code: string;
-  notes:    string;
-}
+// JobFormValues is inferred from the Zod schema in JobCodeModal
 
-export interface TaskFormValues {
-  task_type_id:        string;
-  work_type:           WorkType;
-  assigned_to_id:      string;
-  assigned_to_type:    AssignedToType;
-  task_language_ids:   string[];          // multi-select
-  payment_status:      PaymentStatus;
-  rate_per_page:       number | null;
-  source_pages:        number | null;
-  number_of_languages: number | null;
-  final_pages:         number | null;
-  source_file_link:    string;
-  deliverable_link:    string;
-  task_notes:          string;
-  status:              TaskStatus;
-}
+// TaskFormValues is inferred from the Zod schema in TaskModal

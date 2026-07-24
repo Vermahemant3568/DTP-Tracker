@@ -1,5 +1,17 @@
 import { supabase } from "@/lib/supabase";
-import type { TaskRevision, TaskRevisionFormValues } from "@/types/database";
+import type { TaskRevision } from "@/types/database";
+
+interface RevisionInput {
+  revision_type:    "General" | "Client" | "QA" | "Proofreading" | "Internal";
+  work_type:        "Inhouse" | "Vendor";
+  assigned_to_id:   string;
+  assigned_to_type: "Employee" | "Vendor";
+  language_ids:     string[];
+  revision_pages:   number | null;
+  rate_per_page:    number | null;
+  payment_status:   "Paid" | "Unpaid";
+  revision_notes:   string;
+}
 
 const SELECT = "id, task_id, revision_type, work_type, assigned_to_id, assigned_to_type, revision_pages, rate_per_page, payment_status, revision_notes, created_at, updated_at";
 
@@ -37,7 +49,7 @@ export async function fetchRevisions(taskId: string): Promise<TaskRevision[]> {
   return resolveNames((data as TaskRevision[]) ?? []);
 }
 
-export async function insertRevision(taskId: string, values: TaskRevisionFormValues): Promise<void> {
+export async function insertRevision(taskId: string, values: RevisionInput): Promise<void> {
   const { error } = await supabase.from("task_revisions").insert({
     task_id:          taskId,
     revision_type:    values.revision_type,
@@ -52,7 +64,7 @@ export async function insertRevision(taskId: string, values: TaskRevisionFormVal
   if (error) throw new Error(error.message);
 }
 
-export async function updateRevision(id: string, values: TaskRevisionFormValues): Promise<void> {
+export async function updateRevision(id: string, values: RevisionInput): Promise<void> {
   const { error } = await supabase.from("task_revisions").update({
     revision_type:    values.revision_type,
     work_type:        values.work_type,

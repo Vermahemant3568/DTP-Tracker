@@ -8,14 +8,16 @@ import { X, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { completeJob } from "@/services/jobService";
-import type { Job, JobFormValues } from "@/types/database";
+import type { Job } from "@/types/database";
 
 const schema = z.object({
   job_code: z.string().min(1, "Job code is required"),
   notes:    z.string().default(""),
 });
 
-const defaultValues: JobFormValues = { job_code: "", notes: "" };
+type FormValues = z.infer<typeof schema>;
+
+const defaultValues: FormValues = { job_code: "", notes: "" };
 
 interface JobCodeModalProps {
   open:      boolean;
@@ -28,7 +30,7 @@ export default function JobCodeModal({ open, job, onClose, onSuccess }: JobCodeM
   const {
     register, handleSubmit, reset,
     formState: { errors, isSubmitting },
-  } = useForm<JobFormValues>({ resolver: zodResolver(schema), defaultValues });
+  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   useEffect(() => {
     if (job) {
@@ -38,7 +40,7 @@ export default function JobCodeModal({ open, job, onClose, onSuccess }: JobCodeM
     }
   }, [job, reset]);
 
-  const onSubmit = async (values: JobFormValues) => {
+  const onSubmit = async (values: FormValues) => {
     try {
       await completeJob(job!.id, values);
       toast.success(`Job code saved — ${values.job_code}`);

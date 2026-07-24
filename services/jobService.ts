@@ -1,5 +1,10 @@
 import { supabase } from "@/lib/supabase";
-import type { Job, JobFormValues } from "@/types/database";
+import type { Job } from "@/types/database";
+
+interface JobInput {
+  job_code: string;
+  notes:    string;
+}
 
 export async function fetchJobs(): Promise<Job[]> {
   const { data, error } = await supabase
@@ -62,7 +67,7 @@ export async function fetchJobs(): Promise<Job[]> {
 }
 
 // Enter job code + mark completed
-export async function completeJob(id: string, values: JobFormValues): Promise<void> {
+export async function completeJob(id: string, values: JobInput): Promise<void> {
   const { error } = await supabase
     .from("jobs")
     .update({

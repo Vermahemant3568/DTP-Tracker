@@ -1,5 +1,12 @@
 import { supabase } from "@/lib/supabase";
-import type { Language, LanguageFormValues } from "@/types/database";
+import type { Language } from "@/types/database";
+
+interface LanguageInput {
+  language_name: string;
+  language_code: string;
+  language_type: "source" | "target" | "both";
+  status:        "active" | "inactive";
+}
 
 const SELECT = "id, language_name, language_code, language_type, status, created_at";
 
@@ -44,7 +51,7 @@ export async function fetchTargetLanguages(): Promise<Language[]> {
   return data ?? [];
 }
 
-export async function insertLanguage(values: LanguageFormValues): Promise<void> {
+export async function insertLanguage(values: LanguageInput): Promise<void> {
   const { error } = await supabase.from("languages").insert({
     language_name: values.language_name,
     language_code: values.language_code || null,
@@ -54,7 +61,7 @@ export async function insertLanguage(values: LanguageFormValues): Promise<void> 
   if (error) throw error;
 }
 
-export async function updateLanguage(id: string, values: LanguageFormValues): Promise<void> {
+export async function updateLanguage(id: string, values: LanguageInput): Promise<void> {
   const { error } = await supabase.from("languages").update({
     language_name: values.language_name,
     language_code: values.language_code || null,

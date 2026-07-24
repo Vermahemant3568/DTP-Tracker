@@ -8,7 +8,7 @@ import { X, AlertTriangle, Globe } from "lucide-react";
 import { toast } from "sonner";
 
 import { insertLanguage, updateLanguage } from "@/services/languageService";
-import type { Language, LanguageFormValues } from "@/types/database";
+import type { Language } from "@/types/database";
 
 // ── Schema ────────────────────────────────────────────────────
 
@@ -19,7 +19,9 @@ const schema = z.object({
   status:        z.enum(["active", "inactive"]).default("active"),
 });
 
-const defaultValues: LanguageFormValues = {
+type FormValues = z.infer<typeof schema>;
+
+const defaultValues: FormValues = {
   language_name: "",
   language_code: "",
   language_type: "both",
@@ -28,7 +30,7 @@ const defaultValues: LanguageFormValues = {
 
 // ── Type config ───────────────────────────────────────────────
 
-const TYPE_OPTIONS: { value: LanguageFormValues["language_type"]; label: string; desc: string; active: string }[] = [
+const TYPE_OPTIONS: { value: FormValues["language_type"]; label: string; desc: string; active: string }[] = [
   { value: "source", label: "Source",      desc: "Used as source language only",        active: "bg-blue-600 border-blue-600 text-white shadow-sm" },
   { value: "target", label: "Target",      desc: "Used as target language only",        active: "bg-violet-600 border-violet-600 text-white shadow-sm" },
   { value: "both",   label: "Source & Target", desc: "Can be used as both",             active: "bg-teal-600 border-teal-600 text-white shadow-sm" },
@@ -49,7 +51,7 @@ export default function LanguageModal({ open, language, onClose, onSuccess }: La
   const isEdit = !!language;
 
   const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } =
-    useForm<LanguageFormValues>({ resolver: zodResolver(schema), defaultValues });
+    useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   const langType = watch("language_type");
 
@@ -66,7 +68,7 @@ export default function LanguageModal({ open, language, onClose, onSuccess }: La
     }
   }, [language, reset]);
 
-  const onSubmit = async (values: LanguageFormValues) => {
+  const onSubmit = async (values: FormValues) => {
     try {
       if (isEdit) {
         await updateLanguage(language!.id, values);

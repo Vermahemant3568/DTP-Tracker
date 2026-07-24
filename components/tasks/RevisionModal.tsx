@@ -11,7 +11,7 @@ import SearchableSelect, { type SelectOption } from "@/components/ui/searchable-
 import { fetchEmployees } from "@/services/employeeService";
 import { fetchVendors }   from "@/services/vendorService";
 import { insertRevision, updateRevision } from "@/services/revisionService";
-import type { TaskRevision, TaskRevisionFormValues, TaskLanguage, Employee, Vendor, RevisionType } from "@/types/database";
+import type { TaskRevision, TaskLanguage, Employee, Vendor, RevisionType } from "@/types/database";
 
 // ── Revision type config ──────────────────────────────────────
 
@@ -25,7 +25,7 @@ const REVISION_TYPES: { value: RevisionType; label: string; color: string; activ
 
 // ── Schema ────────────────────────────────────────────────────
 
-const schema = z.object({
+const baseSchema = z.object({
   revision_type:    z.enum(["General", "Client", "QA", "Proofreading", "Internal"]),
   work_type:        z.enum(["Inhouse", "Vendor"]),
   assigned_to_id:   z.string().default(""),
@@ -43,7 +43,11 @@ const schema = z.object({
   revision_notes:   z.string().default(""),
 });
 
-const defaultValues: TaskRevisionFormValues = {
+type FormValues = z.infer<typeof baseSchema>;
+
+const schema = baseSchema;
+
+const defaultValues: FormValues = {
   revision_type:    "General",
   work_type:        "Inhouse",
   assigned_to_id:   "",
@@ -81,8 +85,8 @@ export default function RevisionModal({
   const {
     register, handleSubmit, control, watch, setValue, reset,
     formState: { errors, isSubmitting },
-  } = useForm<TaskRevisionFormValues>({
-    resolver: zodResolver(schema) as any, // eslint-disable-line
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues,
   });
 
@@ -126,7 +130,7 @@ export default function RevisionModal({
     }
   }, [revision, reset]);
 
-  const onSubmit = async (values: TaskRevisionFormValues) => {
+  const onSubmit = async (values: FormValues) => {
     try {
       if (isEdit) {
         await updateRevision(revision!.id, values);
@@ -184,7 +188,7 @@ export default function RevisionModal({
             <p className="text-sm text-gray-400">Loading form data…</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit as any)} className="flex-1 overflow-y-auto"> {/* eslint-disable-line */}
+          <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto">
             <div className="px-6 py-4 space-y-5">
 
               {/* ── Section 1: Revision Type ── */}
