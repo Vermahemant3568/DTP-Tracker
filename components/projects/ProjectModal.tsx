@@ -180,67 +180,87 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
           <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto">
             <div className="px-6 py-4 space-y-5">
 
-              {/* ── Section: Basic Info ── */}
-              <Section icon={<FileText size={14} />} title="Basic Information">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="sm:col-span-1">
-                    <Field label="Client" error={errors.client_id?.message} required>
-                      <Controller
-                        control={control}
-                        name="client_id"
-                        render={({ field }) => (
-                          <SearchableSelect
-                            options={clients.map(c => ({ value: c.id, label: c.company_name }))}
-                            value={field.value}
-                            onChange={field.onChange}
-                            placeholder="Select client…"
-                            error={!!errors.client_id}
-                          />
+              {/* ── Section: Client (full-width, prominent) ── */}
+              <Section icon={<User size={14} />} title="Client">
+                <Controller
+                  control={control}
+                  name="client_id"
+                  render={({ field }) => {
+                    const selectedClient = clients.find(c => c.id === field.value);
+                    return (
+                      <div className="space-y-2">
+                        <SearchableSelect
+                          options={clients.map(c => ({ value: c.id, label: c.company_name }))}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Search and select a client…"
+                          error={!!errors.client_id}
+                        />
+                        {selectedClient && (
+                          <div className="flex items-center gap-2.5 rounded-xl bg-blue-50 border border-blue-100 px-3.5 py-2.5">
+                            <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                              <span className="text-xs font-bold text-white">
+                                {selectedClient.company_name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-blue-800">{selectedClient.company_name}</p>
+                              <p className="text-xs text-blue-500">Selected client</p>
+                            </div>
+                          </div>
                         )}
-                      />
-                    </Field>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Field label="Project Name" error={errors.project_name?.message} required>
-                      <input
-                        {...register("project_name")}
-                        placeholder="e.g. Annual Report 2025"
-                        className={inputCls(!!errors.project_name)}
-                      />
-                    </Field>
-                  </div>
-                  <div className="sm:col-span-1">
+                        {errors.client_id && (
+                          <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11} />{errors.client_id.message}</p>
+                        )}
+                      </div>
+                    );
+                  }}
+                />
+              </Section>
+
+              {/* ── Section: Project Details ── */}
+              <Section icon={<FileText size={14} />} title="Project Details">
+                <div className="space-y-3">
+                  {/* Project Name — full width */}
+                  <Field label="Project Name" error={errors.project_name?.message} required>
+                    <input
+                      {...register("project_name")}
+                      placeholder="e.g. Annual Report 2025"
+                      className={inputCls(!!errors.project_name)}
+                    />
+                  </Field>
+
+                  {/* Coordinator + Received Date — side by side */}
+                  <div className="grid grid-cols-2 gap-3">
                     <Field label="Coordinator">
                       <select {...register("coordinator_id")} className={selectCls(false)}>
                         <option value="">Select coordinator…</option>
                         {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
                       </select>
                     </Field>
+                    <Field label="Received Date" error={errors.received_date?.message} required>
+                      <div className="relative">
+                        <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input type="date" {...register("received_date")} className={`${inputCls(!!errors.received_date)} pl-8`} />
+                      </div>
+                    </Field>
                   </div>
-                </div>
-              </Section>
 
-              {/* ── Section: Schedule & Pages ── */}
-              <Section icon={<User size={14} />} title="Schedule & Pages">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <Field label="Received Date" error={errors.received_date?.message} required>
-                    <div className="relative">
-                      <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                      <input type="date" {...register("received_date")} className={`${inputCls(!!errors.received_date)} pl-8`} />
-                    </div>
-                  </Field>
-                  <Field label="Source Language">
-                    <select {...register("source_language_id")} className={selectCls(false)}>
-                      <option value="">Select language…</option>
-                      {sourceLanguages.map(l => <option key={l.id} value={l.id}>{l.language_name}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Source File Pages" error={errors.source_file_pages?.message}>
-                    <div className="relative">
-                      <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                      <input type="number" min={1} {...register("source_file_pages")} placeholder="e.g. 24" className={`${inputCls(!!errors.source_file_pages)} pl-8`} />
-                    </div>
-                  </Field>
+                  {/* Source Language + Pages — side by side */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Source Language">
+                      <select {...register("source_language_id")} className={selectCls(false)}>
+                        <option value="">Select language…</option>
+                        {sourceLanguages.map(l => <option key={l.id} value={l.id}>{l.language_name}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Source File Pages" error={errors.source_file_pages?.message}>
+                      <div className="relative">
+                        <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input type="number" min={1} {...register("source_file_pages")} placeholder="e.g. 24" className={`${inputCls(!!errors.source_file_pages)} pl-8`} />
+                      </div>
+                    </Field>
+                  </div>
                 </div>
               </Section>
 
