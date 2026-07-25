@@ -20,9 +20,10 @@ const schema = z.object({
   status:       z.enum(["active", "inactive"]).default("active"),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
 
-const defaultValues: FormValues = {
+const defaultValues: FormInput = {
   company_name: "",
   contact_name: "",
   email:        "",
@@ -47,7 +48,7 @@ export default function VendorModal({ open, vendor, onClose, onSuccess }: Vendor
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
+  } = useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   useEffect(() => {
     if (vendor) {

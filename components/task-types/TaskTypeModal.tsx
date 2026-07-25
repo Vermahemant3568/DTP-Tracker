@@ -16,9 +16,10 @@ const schema = z.object({
   status:      z.enum(["active", "inactive"]),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
 
-const defaultValues: FormValues = { name: "", description: "", status: "active" };
+const defaultValues: FormInput = { name: "", description: "", status: "active" };
 
 interface Props {
   open:      boolean;
@@ -31,7 +32,7 @@ export default function TaskTypeModal({ open, taskType, onClose, onSuccess }: Pr
   const isEdit = !!taskType;
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
-    useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
+    useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   useEffect(() => {
     if (taskType) {

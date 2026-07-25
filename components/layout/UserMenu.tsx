@@ -19,20 +19,22 @@ const USER = {
 export default function UserMenu() {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white pl-1.5 pr-2.5 py-1.5 hover:border-blue-300 hover:bg-blue-50/50 transition-all outline-none group shadow-sm">
-          {/* Avatar */}
-          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
-            <span className="text-[11px] font-bold text-white">{USER.initials}</span>
-          </div>
-          {/* Name + role */}
-          <div className="hidden sm:block text-left leading-none">
-            <p className="text-xs font-semibold text-gray-800">{USER.name}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{USER.role}</p>
-          </div>
-          <ChevronDown size={13} className="hidden sm:block text-gray-400 group-hover:text-blue-500 transition-colors ml-0.5" />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white pl-1.5 pr-2.5 py-1.5 hover:border-blue-300 hover:bg-blue-50/50 transition-all outline-none group shadow-sm">
+            {/* Avatar */}
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
+              <span className="text-[11px] font-bold text-white">{USER.initials}</span>
+            </div>
+            {/* Name + role */}
+            <div className="hidden sm:block text-left leading-none">
+              <p className="text-xs font-semibold text-gray-800">{USER.name}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{USER.role}</p>
+            </div>
+            <ChevronDown size={13} className="hidden sm:block text-gray-400 group-hover:text-blue-500 transition-colors ml-0.5" />
+          </button>
+        }
+      />
 
       <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/60">
 

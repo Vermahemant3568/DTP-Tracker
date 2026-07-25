@@ -47,11 +47,18 @@ export async function fetchDashboardData(year: number, month: number): Promise<D
   if (taskTypesRes.error) throw new Error(taskTypesRes.error.message);
   if (revisionsRes.error) throw new Error(revisionsRes.error.message);
 
-  const allTasks = (tasksRes.data ?? []) as {
-    id: string; work_type: string; final_pages: number | null;
-    status: string; task_type_id: string; created_at: string;
-    task_types: { id: string; name: string } | null;
-  }[];
+  type RawTask = NonNullable<typeof tasksRes.data>[number];
+  const allTasks = (tasksRes.data ?? []).map((t: RawTask) => ({
+    id: t.id as string,
+    work_type: t.work_type as string,
+    final_pages: t.final_pages as number | null,
+    status: t.status as string,
+    task_type_id: t.task_type_id as string,
+    created_at: t.created_at as string,
+    task_types: Array.isArray(t.task_types) && t.task_types.length > 0
+      ? { id: t.task_types[0].id as string, name: t.task_types[0].name as string }
+      : null,
+  }));
 
   const monthlyTasks = allTasks.filter(t => t.created_at >= startDate && t.created_at < endDate);
   const revisions = revisionsRes.data ?? [];

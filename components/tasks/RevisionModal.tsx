@@ -31,19 +31,17 @@ const baseSchema = z.object({
   assigned_to_id:   z.string(),
   assigned_to_type: z.enum(["Employee", "Vendor"]),
   language_ids:     z.array(z.string()),
-  revision_pages:   z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().int().positive("Revision pages must be positive")
-  ),
-  rate_per_page:    z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().nonnegative("Must be ≥ 0").nullable()
-  ),
+  revision_pages:   z.string().or(z.number()).nullable()
+    .transform(v => (v === "" || v === null) ? null : Number(v))
+    .pipe(z.number().int().positive("Revision pages must be positive")),
+  rate_per_page:    z.string().or(z.number()).nullable()
+    .transform(v => (v === "" || v === null) ? null : Number(v))
+    .pipe(z.number().nonnegative("Must be ≥ 0").nullable()),
   payment_status:   z.enum(["Paid", "Unpaid"]),
   revision_notes:   z.string(),
 });
 
-type FormValues = z.infer<typeof baseSchema>;
+type FormValues = z.input<typeof baseSchema>;
 
 const schema = baseSchema;
 
@@ -131,12 +129,19 @@ export default function RevisionModal({
   }, [revision, reset]);
 
   const onSubmit = async (values: FormValues) => {
+    const toNum = (v: string | number | null): number | null =>
+      v === "" || v === null ? null : Number(v);
+    const payload = {
+      ...values,
+      revision_pages: toNum(values.revision_pages),
+      rate_per_page:  toNum(values.rate_per_page),
+    };
     try {
       if (isEdit) {
-        await updateRevision(revision!.id, values);
+        await updateRevision(revision!.id, payload);
         toast.success("Revision updated");
       } else {
-        await insertRevision(taskId, values);
+        await insertRevision(taskId, payload);
         toast.success(`Revision #${revisionNo} added`);
         reset(defaultValues);
       }

@@ -15,9 +15,10 @@ const schema = z.object({
   notes:    z.string(),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
 
-const defaultValues: FormValues = { job_code: "", notes: "" };
+const defaultValues: FormInput = { job_code: "", notes: "" };
 
 interface JobCodeModalProps {
   open:      boolean;
@@ -30,7 +31,7 @@ export default function JobCodeModal({ open, job, onClose, onSuccess }: JobCodeM
   const {
     register, handleSubmit, reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
+  } = useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   useEffect(() => {
     if (job) {

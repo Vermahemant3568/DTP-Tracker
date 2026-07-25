@@ -38,15 +38,14 @@ const schema = z.object({
   received_date:       z.string().min(1, "Received date is required"),
   source_language_id:  z.string(),
   target_language_ids: z.array(z.string()).min(1, "Select at least one target language"),
-  source_file_pages:   z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().int().positive("Must be a positive number").nullable()
-  ),
+  source_file_pages:   z.string().or(z.number()).nullable()
+    .transform(v => (v === "" || v === null) ? null : Number(v))
+    .pipe(z.number().int().positive("Must be a positive number").nullable()),
   project_notes: z.string(),
   status:        z.string(),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.input<typeof schema>;
 
 // ── Props ─────────────────────────────────────────────────────
 
@@ -118,16 +117,20 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
   }, [project, reset]);
 
   const onSubmit = async (values: FormValues): Promise<void> => {
-    if (values.status === "completed" && openTaskCount > 0) {
+    const pages: number | null = values.source_file_pages === "" || values.source_file_pages === null
+      ? null
+      : Number(values.source_file_pages);
+    const payload = { ...values, source_file_pages: pages };
+    if (payload.status === "completed" && openTaskCount > 0) {
       toast.error(`Cannot mark as Completed — ${openTaskCount} task${openTaskCount > 1 ? "s are" : " is"} still open.`);
       return;
     }
     try {
       if (isEdit) {
-        await updateProject(project!.id, values);
-        toast.success(`Project "${values.project_name}" updated`);
+        await updateProject(project!.id, payload);
+        toast.success(`Project "${payload.project_name}" updated`);
       } else {
-        const code = await insertProject(values);
+        const code = await insertProject(payload);
         toast.success(`Project created — ${code}`);
         reset(defaultValues);
       }

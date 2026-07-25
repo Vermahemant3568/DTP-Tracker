@@ -19,9 +19,10 @@ const schema = z.object({
   status:        z.enum(["active", "inactive"]),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
 
-const defaultValues: FormValues = {
+const defaultValues: FormInput = {
   language_name: "",
   language_code: "",
   language_type: "both",
@@ -51,7 +52,7 @@ export default function LanguageModal({ open, language, onClose, onSuccess }: La
   const isEdit = !!language;
 
   const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } =
-    useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
+    useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   const langType = watch("language_type");
 

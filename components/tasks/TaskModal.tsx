@@ -27,29 +27,25 @@ const baseSchema = z.object({
   assigned_to_type:    z.enum(["Employee", "Vendor"]),
   task_language_ids:   z.array(z.string()).min(1, "Select at least one language"),
   payment_status:      z.enum(["Paid", "Unpaid"]),
-  rate_per_page:       z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().nonnegative("Must be ≥ 0").nullable()
-  ),
-  source_pages:        z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().int().positive("Source pages must be positive")
-  ),
-  number_of_languages: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().int().positive("Number of languages must be positive")
-  ),
-  final_pages:         z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().int().positive("Final pages must be positive")
-  ),
+  rate_per_page:       z.string().or(z.number()).nullable()
+    .transform(v => (v === "" || v === null) ? null : Number(v))
+    .pipe(z.number().nonnegative("Must be ≥ 0").nullable()),
+  source_pages:        z.string().or(z.number()).nullable()
+    .transform(v => (v === "" || v === null) ? null : Number(v))
+    .pipe(z.number().int().positive("Source pages must be positive")),
+  number_of_languages: z.string().or(z.number()).nullable()
+    .transform(v => (v === "" || v === null) ? null : Number(v))
+    .pipe(z.number().int().positive("Number of languages must be positive")),
+  final_pages:         z.string().or(z.number()).nullable()
+    .transform(v => (v === "" || v === null) ? null : Number(v))
+    .pipe(z.number().int().positive("Final pages must be positive")),
   source_file_link:    z.string(),
   deliverable_link:    z.string(),
   task_notes:          z.string(),
   status:              z.enum(["pending", "in_progress", "completed", "on_hold", "cancelled"]),
 });
 
-type FormValues = z.infer<typeof baseSchema>;
+type FormValues = z.input<typeof baseSchema>;
 
 const schema = baseSchema.refine(
   (d) => d.payment_status === "Unpaid" || (d.rate_per_page !== null && d.rate_per_page > 0),
@@ -194,12 +190,21 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
   }, [task, reset]);
 
   const onSubmit = async (values: FormValues): Promise<void> => {
+    const toNum = (v: string | number | null): number | null =>
+      v === "" || v === null ? null : Number(v);
+    const payload = {
+      ...values,
+      rate_per_page:       toNum(values.rate_per_page),
+      source_pages:        toNum(values.source_pages),
+      number_of_languages: toNum(values.number_of_languages),
+      final_pages:         toNum(values.final_pages),
+    };
     try {
       if (isEdit) {
-        await updateTask(task!.id, values);
+        await updateTask(task!.id, payload);
         toast.success("Task updated");
       } else {
-        await insertTask(projectId, values);
+        await insertTask(projectId, payload);
         toast.success("Task created");
         reset(defaultValues);
         setFinalOverride(false);

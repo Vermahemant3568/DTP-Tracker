@@ -19,9 +19,10 @@ const schema = z.object({
   status:      z.enum(["active", "inactive"]).default("active"),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
 
-const defaultValues: FormValues = {
+const defaultValues: FormInput = {
   full_name:   "",
   email:       "",
   phone:       "",
@@ -58,7 +59,7 @@ export default function EmployeeModal({ open, employee, onClose, onSuccess }: Em
     reset,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
+  } = useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(schema), defaultValues });
 
   const role = watch("role");
 
@@ -155,7 +156,7 @@ export default function EmployeeModal({ open, employee, onClose, onSuccess }: Em
 
           {/* Role hint */}
           {hint && (
-            <p className={`text-xs px-3 py-2 rounded-lg border ${HINT_COLORS[role]}`}>
+            <p className={`text-xs px-3 py-2 rounded-lg border ${role ? HINT_COLORS[role] : ""}`}>
               ℹ️ {hint}
             </p>
           )}
