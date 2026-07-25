@@ -18,6 +18,7 @@ import { fetchTasks } from "@/services/taskService";
 import type {
   Client, Employee, Language, Project, ProjectStatus,
 } from "@/types/database";
+import SearchableSelect from "@/components/ui/searchable-select";
 
 // ── Status config ─────────────────────────────────────────────
 
@@ -184,10 +185,19 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="sm:col-span-1">
                     <Field label="Client" error={errors.client_id?.message} required>
-                      <select {...register("client_id")} className={selectCls(!!errors.client_id)}>
-                        <option value="">Select client…</option>
-                        {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-                      </select>
+                      <Controller
+                        control={control}
+                        name="client_id"
+                        render={({ field }) => (
+                          <SearchableSelect
+                            options={clients.map(c => ({ value: c.id, label: c.company_name }))}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select client…"
+                            error={!!errors.client_id}
+                          />
+                        )}
+                      />
                     </Field>
                   </div>
                   <div className="sm:col-span-2">
