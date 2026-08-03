@@ -36,7 +36,7 @@ export async function fetchDashboardData(year: number, month: number): Promise<D
 
   const [projectsRes, tasksRes, taskTypesRes, revisionsRes] = await Promise.all([
     supabase.from("projects").select("id", { count: "exact", head: true }),
-    supabase.from("tasks").select("id, work_type, final_pages, status, task_type_id, created_at, task_types(id, name)"),
+    supabase.from("tasks").select("id, work_type, final_pages, status, task_type_id, created_at, task_received_date, task_types(id, name)"),
     supabase.from("task_types").select("id, name").eq("status", "active").order("name"),
     supabase.from("task_revisions").select("id, work_type, revision_pages, created_at")
       .gte("created_at", startDate).lt("created_at", endDate),
@@ -55,12 +55,17 @@ export async function fetchDashboardData(year: number, month: number): Promise<D
     status: t.status as string,
     task_type_id: t.task_type_id as string,
     created_at: t.created_at as string,
+    // Use task_received_date as the canonical month date if set,
+    // otherwise fall back to the date portion of created_at.
+    month_date: ((t.task_received_date as string | null) ?? (t.created_at as string).slice(0, 10)) as string,
     task_types: Array.isArray(t.task_types) && t.task_types.length > 0
       ? { id: t.task_types[0].id as string, name: t.task_types[0].name as string }
       : null,
   }));
 
-  const monthlyTasks = allTasks.filter(t => t.created_at >= startDate && t.created_at < endDate);
+  // Filter by month_date (YYYY-MM-DD) so July tasks with a July received date
+  // always appear under July regardless of when they were entered.
+  const monthlyTasks = allTasks.filter(t => t.month_date >= startDate && t.month_date < endDate);
   const revisions = revisionsRes.data ?? [];
 
   // Overall

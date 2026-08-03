@@ -73,12 +73,17 @@ export async function fetchProjects(): Promise<Project[]> {
         project_id,
         language_id,
         languages ( id, language_name )
-      )
+      ),
+      tasks ( final_pages )
     `)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data as unknown as Project[]) ?? [];
+
+  return ((data as unknown as (Project & { tasks?: { final_pages: number | null }[] })[]) ?? []).map(p => ({
+    ...p,
+    total_task_pages: (p.tasks ?? []).reduce((sum, t) => sum + (t.final_pages ?? 0), 0) || 0,
+  }));
 }
 
 // ── Insert project + target languages ────────────────────────

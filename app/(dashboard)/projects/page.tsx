@@ -281,7 +281,8 @@ export default function ProjectsPage() {
                   <th className="px-5 py-3 whitespace-nowrap">Coordinator</th>
                   <th className="px-5 py-3 whitespace-nowrap">Source</th>
                   <th className="px-5 py-3 whitespace-nowrap">Target Langs</th>
-                  <th className="px-5 py-3 whitespace-nowrap">Pages</th>
+                  <th className="px-5 py-3 whitespace-nowrap">Src Pages</th>
+                  <th className="px-5 py-3 whitespace-nowrap">Task Pages</th>
                   <th className="px-5 py-3 whitespace-nowrap">Received</th>
                   <th className="px-5 py-3 whitespace-nowrap">Status</th>
                   <th className="px-5 py-3 text-right whitespace-nowrap">Actions</th>
@@ -291,7 +292,7 @@ export default function ProjectsPage() {
                 {fetching ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-gray-100">
-                      {Array.from({ length: 10 }).map((_, j) => (
+                      {Array.from({ length: 11 }).map((_, j) => (
                         <td key={j} className="px-5 py-3.5">
                           <div className="h-3.5 rounded bg-gray-100 animate-pulse" style={{ width: `${60 + (j * 13) % 40}%` }} />
                         </td>
@@ -300,7 +301,7 @@ export default function ProjectsPage() {
                   ))
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-14 text-center">
+                    <td colSpan={11} className="px-4 py-14 text-center">
                       <FolderKanban size={32} className="mx-auto text-gray-200 mb-2" />
                       <p className="text-sm text-gray-400">
                         {hasFilters ? "No projects match your filters." : "No projects yet. Click \"New Project\" to get started."}
@@ -361,6 +362,11 @@ export default function ProjectsPage() {
                         <td className="px-5 py-3.5 text-gray-600 text-xs font-medium">
                           {project.source_file_pages
                             ? <span className="bg-gray-100 px-2 py-0.5 rounded-md">{project.source_file_pages}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-5 py-3.5 text-xs font-medium">
+                          {(project.total_task_pages ?? 0) > 0
+                            ? <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md ring-1 ring-indigo-200">{project.total_task_pages}</span>
                             : <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap text-xs">{fmt(project.received_date)}</td>
