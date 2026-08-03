@@ -1,6 +1,6 @@
 "use client";
 
-import { X, ClipboardList, UserCheck, Calculator, Globe, Link2, StickyNote, RotateCcw, ExternalLink, Pencil } from "lucide-react";
+import { X, ClipboardList, UserCheck, Calendar, Calculator, Globe, Link2, StickyNote, RotateCcw, ExternalLink, Pencil } from "lucide-react";
 import type { Task } from "@/types/database";
 
 // ── Config ────────────────────────────────────────────────────
@@ -145,6 +145,28 @@ export default function TaskViewModal({ open, task, onClose, onEdit }: TaskViewM
                 </Detail>
               </div>
             </Section>
+
+            {/* ── Section: Dates ── */}
+            {(task.task_received_date || task.task_delivery_date) && (
+              <Section icon={<Calendar size={14} />} title="Dates">
+                <div className="grid grid-cols-2 gap-4">
+                  <Detail label="Task Received Date">
+                    <span className="text-sm font-medium text-gray-900">
+                      {task.task_received_date
+                        ? new Date(task.task_received_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                        : "—"}
+                    </span>
+                  </Detail>
+                  <Detail label="Delivery Date">
+                    <span className="text-sm font-medium text-gray-900">
+                      {task.task_delivery_date
+                        ? new Date(task.task_delivery_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                        : "—"}
+                    </span>
+                  </Detail>
+                </div>
+              </Section>
+            )}
 
             {/* ── Section: Page Counts ── */}
             <Section icon={<Calculator size={14} />} title="Page Counts">

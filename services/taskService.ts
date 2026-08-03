@@ -12,10 +12,12 @@ interface TaskInput {
   source_pages:        number | null;
   number_of_languages: number | null;
   final_pages:         number | null;
-  source_file_link:    string;
-  deliverable_link:    string;
-  task_notes:          string;
-  status:              "pending" | "in_progress" | "completed" | "on_hold" | "cancelled";
+  source_file_link:       string;
+  deliverable_link:       string;
+  task_notes:             string;
+  task_received_date:     string | null;
+  task_delivery_date:     string | null;
+  status:                 "pending" | "in_progress" | "completed" | "on_hold" | "cancelled";
 }
 
 // ── Fetch all tasks for a project ─────────────────────────────
@@ -29,6 +31,7 @@ export async function fetchTasks(projectId: string): Promise<Task[]> {
       payment_status, rate_per_page,
       source_pages, number_of_languages, final_pages,
       source_file_link, deliverable_link, task_notes,
+      task_received_date, task_delivery_date,
       status, created_at, updated_at,
       task_types ( id, name ),
       task_languages (
@@ -118,6 +121,8 @@ export async function insertTask(
       source_file_link:    values.source_file_link     || null,
       deliverable_link:    values.deliverable_link     || null,
       task_notes:          values.task_notes           || null,
+      task_received_date:  values.task_received_date   || null,
+      task_delivery_date:  values.task_delivery_date   || null,
       status:              values.status,
     })
     .select("id")
@@ -160,6 +165,8 @@ export async function updateTask(
       source_file_link:    values.source_file_link     || null,
       deliverable_link:    values.deliverable_link     || null,
       task_notes:          values.task_notes           || null,
+      task_received_date:  values.task_received_date   || null,
+      task_delivery_date:  values.task_delivery_date   || null,
       status:              values.status,
     })
     .eq("id", id);

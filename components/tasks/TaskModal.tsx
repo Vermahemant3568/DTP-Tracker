@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  X, Check, Link2, Calculator, UserCheck,
+  X, Check, Link2, Calendar, Calculator, UserCheck,
   ClipboardList, Globe, AlertTriangle, StickyNote,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,18 +39,28 @@ const baseSchema = z.object({
   final_pages:         z.string().or(z.number()).nullable()
     .transform(v => (v === "" || v === null) ? null : Number(v))
     .pipe(z.number().int().positive("Final pages must be positive")),
-  source_file_link:    z.string(),
-  deliverable_link:    z.string(),
-  task_notes:          z.string(),
-  status:              z.enum(["pending", "in_progress", "completed", "on_hold", "cancelled"]),
+  source_file_link:   z.string(),
+  deliverable_link:   z.string(),
+  task_notes:         z.string(),
+  task_received_date: z.string().nullable(),
+  task_delivery_date: z.string().nullable(),
+  status:             z.enum(["pending", "in_progress", "completed", "on_hold", "cancelled"]),
 });
 
 type FormValues = z.input<typeof baseSchema>;
 
-const schema = baseSchema.refine(
-  (d) => d.payment_status === "Unpaid" || (d.rate_per_page !== null && d.rate_per_page > 0),
-  { message: "Rate per page is required when Paid", path: ["rate_per_page"] }
-);
+const schema = baseSchema
+  .refine(
+    (d) => d.payment_status === "Unpaid" || (d.rate_per_page !== null && d.rate_per_page > 0),
+    { message: "Rate per page is required when Paid", path: ["rate_per_page"] }
+  )
+  .refine(
+    (d) =>
+      !d.task_received_date ||
+      !d.task_delivery_date ||
+      d.task_delivery_date >= d.task_received_date,
+    { message: "Delivery Date cannot be before Received Date", path: ["task_delivery_date"] }
+  );
 
 // ── Status config ─────────────────────────────────────────────
 
@@ -83,7 +93,8 @@ const defaultValues: FormValues = {
   assigned_to_type: "Employee", task_language_ids: [],
   payment_status: "Unpaid", rate_per_page: null,
   source_pages: null, number_of_languages: null, final_pages: null,
-  source_file_link: "", deliverable_link: "", task_notes: "", status: "pending",
+  source_file_link: "", deliverable_link: "", task_notes: "",
+  task_received_date: null, task_delivery_date: null, status: "pending",
 };
 
 // ── Component ─────────────────────────────────────────────────
@@ -181,6 +192,8 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
         source_file_link:    task.source_file_link     ?? "",
         deliverable_link:    task.deliverable_link     ?? "",
         task_notes:          task.task_notes           ?? "",
+        task_received_date:  task.task_received_date   ?? null,
+        task_delivery_date:  task.task_delivery_date   ?? null,
         status:              task.status,
       });
     } else {
@@ -198,6 +211,8 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
       source_pages:        toNum(values.source_pages),
       number_of_languages: toNum(values.number_of_languages),
       final_pages:         toNum(values.final_pages),
+      task_received_date:  values.task_received_date || null,
+      task_delivery_date:  values.task_delivery_date || null,
     };
     try {
       if (isEdit) {
@@ -483,7 +498,21 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
                 </div>
               </Section>
 
-              {/* ── Section 4: Links & Notes ── */}
+              {/* ── Section 4: Dates ── */}
+              <Section icon={<Calendar size={14} />} title="Dates">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Task Received Date">
+                    <input type="date" {...register("task_received_date")}
+                      className={inputCls(false)} />
+                  </Field>
+                  <Field label="Delivery Date" error={(errors as Record<string, { message?: string }>).task_delivery_date?.message}>
+                    <input type="date" {...register("task_delivery_date")}
+                      className={inputCls(!!(errors as Record<string, { message?: string }>).task_delivery_date)} />
+                  </Field>
+                </div>
+              </Section>
+
+              {/* ── Section 5: Links & Notes ── */}
               <Section icon={<Link2 size={14} />} title="Links & Notes">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label="Source File Link">

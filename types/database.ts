@@ -132,12 +132,14 @@ export interface Task {
   source_pages:        number | null;
   number_of_languages: number | null;
   final_pages:         number | null;
-  source_file_link:    string | null;
-  deliverable_link:    string | null;
-  task_notes:          string | null;
-  status:              TaskStatus;
-  created_at:          string;
-  updated_at:          string;
+  source_file_link:      string | null;
+  deliverable_link:      string | null;
+  task_notes:            string | null;
+  task_received_date:    string | null;
+  task_delivery_date:    string | null;
+  status:                TaskStatus;
+  created_at:            string;
+  updated_at:            string;
   // Joined
   task_types?:      Pick<TaskType, "id" | "name">          | null;
   task_languages?:  TaskLanguage[];

@@ -111,6 +111,8 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                 <th className="px-4 py-3 whitespace-nowrap text-right">Amount</th>
                 <th className="px-4 py-3 whitespace-nowrap">Payment</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 whitespace-nowrap">Received</th>
+                <th className="px-4 py-3 whitespace-nowrap">Delivery</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
@@ -118,7 +120,7 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-100">
-                    {Array.from({ length: 15 }).map((_, j) => (
+                    {Array.from({ length: 17 }).map((_, j) => (
                       <td key={j} className="px-4 py-3.5">
                         <div className="h-3.5 rounded bg-gray-100 animate-pulse" style={{ width: `${60 + (j * 13) % 40}%` }} />
                       </td>
@@ -127,7 +129,7 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                 ))
               ) : tasks.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="px-4 py-14 text-center">
+                  <td colSpan={17} className="px-4 py-14 text-center">
                     <p className="text-sm text-gray-400 mb-3">No tasks yet.</p>
                     <button
                       onClick={onAddTask}
@@ -239,6 +241,18 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                           </span>
                         </td>
 
+                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                          {task.task_received_date
+                            ? new Date(task.task_received_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+
+                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                          {task.task_delivery_date
+                            ? new Date(task.task_delivery_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
                             {task.deliverable_link && (
@@ -279,7 +293,7 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                       {/* ── Revisions expanded panel ── */}
                       {isOpen && (
                         <tr key={`${task.id}-revisions`}>
-                          <td colSpan={15} className="px-0 py-0 bg-amber-50/40">
+                          <td colSpan={17} className="px-0 py-0 bg-amber-50/40">
                             <div className="px-10 py-3 space-y-2">
                               <div className="flex items-center justify-between mb-1">
                                 <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
