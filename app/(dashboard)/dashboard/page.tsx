@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { fetchDashboardData, type DashboardData } from "@/services/dashboardService";
 import ProjectModal from "@/components/projects/ProjectModal";
+import ExportReportButton from "@/components/projects/ExportReportButton";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -253,6 +254,9 @@ export default function DashboardPage() {
               {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
             </FilterSelect>
           </div>
+
+          {/* Export report */}
+          <ExportReportButton />
 
           {/* Add project */}
           <button

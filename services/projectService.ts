@@ -200,6 +200,52 @@ export async function updateProjectStatus(
   if (error) throw new Error(`Failed to update project status: ${error.message}`);
 }
 
+// ── Fetch projects filtered by month + year ──────────────────
+
+export async function fetchProjectsByMonth(year: number, month: number): Promise<Project[]> {
+  const from = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const to   = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select(`
+      id,
+      project_code,
+      client_id,
+      project_name,
+      coordinator_id,
+      received_date,
+      source_language_id,
+      source_file_pages,
+      number_of_languages,
+      project_notes,
+      status,
+      created_at,
+      updated_at,
+      clients      ( id, company_name ),
+      employees    ( id, full_name ),
+      languages    ( id, language_name ),
+      project_target_languages (
+        id,
+        project_id,
+        language_id,
+        languages ( id, language_name )
+      ),
+      tasks ( final_pages )
+    `)
+    .gte("received_date", from)
+    .lte("received_date", to)
+    .order("received_date", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  return ((data as unknown as (Project & { tasks?: { final_pages: number | null }[] })[]) ?? []).map(p => ({
+    ...p,
+    total_task_pages: (p.tasks ?? []).reduce((sum, t) => sum + (t.final_pages ?? 0), 0) || 0,
+  }));
+}
+
 // ── Delete project ────────────────────────────────────────────
 // project_target_languages rows cascade-delete automatically.
 
