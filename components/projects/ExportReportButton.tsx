@@ -64,25 +64,35 @@ function presetLabel(preset: Preset) {
 }
 
 function buildRows(projects: Project[]) {
-  return projects.map(p => ({
-    "Project Code":        p.project_code,
-    "Client Name":         p.clients?.company_name ?? "—",
-    "Project Name":        p.project_name,
-    "Project Coordinator": p.employees?.full_name ?? "—",
-    "Source Language":     p.languages?.language_name ?? "—",
-    "Target Languages":    (p.project_target_languages ?? [])
-                             .map(t => t.languages?.language_name)
-                             .filter(Boolean).join(", ") || "—",
-    "No. of Languages":    p.number_of_languages,
-    "Source Pages":        p.source_file_pages ?? 0,
-    "Task Pages":          p.total_task_pages ?? 0,
-    "Received Date":       p.received_date,
-    "Status":              STATUS_LABELS[p.status] ?? p.status,
-    "Notes":               p.project_notes ?? "",
-  }));
+  const rows: Record<string, string | number>[] = [];
+
+  for (const p of projects) {
+    const tasks = (p as any).tasks as any[] | undefined;
+
+    const taskRows = (!tasks || tasks.length === 0 ? [null] : tasks).map((t: any) => ({
+      "Client Name":         p.clients?.company_name ?? "—",
+      "Project Name":        p.project_name,
+      "Project Coordinator": p.employees?.full_name ?? "—",
+      "Source Language":     p.languages?.language_name ?? "—",
+      "Target Languages":    (p.project_target_languages ?? [])
+                               .map((tl: any) => tl.languages?.language_name)
+                               .filter(Boolean).join(", ") || "—",
+      "No. of Languages":    p.number_of_languages,
+      "Source Pages":        p.source_file_pages ?? 0,
+      "Task Type":           t?.task_types?.name ?? "—",
+      "Work Type":           t?.work_type ?? "—",
+      "Assigned To":         t?.assigned_name ?? "—",
+      "Task Pages":          t?.final_pages ?? 0,
+      "Notes":               p.project_notes ?? "",
+    }));
+
+    rows.push(...taskRows);
+  }
+
+  return rows;
 }
 
-const COL_WIDTHS = [14, 22, 30, 22, 16, 30, 16, 13, 11, 14, 13, 30];
+const COL_WIDTHS = [22, 30, 22, 16, 30, 14, 13, 18, 12, 22, 11, 30];
 
 export default function ExportReportButton() {
   const now = new Date();

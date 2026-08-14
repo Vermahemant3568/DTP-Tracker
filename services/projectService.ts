@@ -232,7 +232,18 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
         language_id,
         languages ( id, language_name )
       ),
-      tasks ( final_pages )
+      tasks (
+        id,
+        work_type,
+        assigned_to_type,
+        assigned_to_id,
+        final_pages,
+        source_pages,
+        task_received_date,
+        task_delivery_date,
+        status,
+        task_types ( id, name )
+      )
     `)
     .gte("received_date", from)
     .lte("received_date", to)
@@ -240,9 +251,49 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
 
   if (error) throw new Error(error.message);
 
-  return ((data as unknown as (Project & { tasks?: { final_pages: number | null }[] })[]) ?? []).map(p => ({
+  // Collect all unique assigned_to_ids to resolve names in one query
+  type RawTask = {
+    id: string; work_type: string; assigned_to_type: string;
+    assigned_to_id: string | null; final_pages: number | null;
+    source_pages: number | null; task_received_date: string | null;
+    task_delivery_date: string | null; status: string;
+    task_types: { id: string; name: string } | { id: string; name: string }[] | null;
+  };
+  type RawProject = Project & { tasks?: RawTask[] };
+  const projects = (data as unknown as RawProject[]) ?? [];
+
+  const employeeIds = new Set<string>();
+  const vendorIds   = new Set<string>();
+  projects.forEach(p =>
+    (p.tasks ?? []).forEach(t => {
+      if (!t.assigned_to_id) return;
+      if (t.assigned_to_type === "Employee") employeeIds.add(t.assigned_to_id);
+      else vendorIds.add(t.assigned_to_id);
+    })
+  );
+
+  const [empRes, venRes] = await Promise.all([
+    employeeIds.size > 0
+      ? supabase.from("employees").select("id, full_name").in("id", [...employeeIds])
+      : Promise.resolve({ data: [] as { id: string; full_name: string }[], error: null }),
+    vendorIds.size > 0
+      ? supabase.from("vendors").select("id, company_name").in("id", [...vendorIds])
+      : Promise.resolve({ data: [] as { id: string; company_name: string }[], error: null }),
+  ]);
+
+  const empMap = new Map((empRes.data ?? []).map(e => [e.id, e.full_name]));
+  const venMap = new Map((venRes.data ?? []).map(v => [v.id, v.company_name]));
+
+  return projects.map(p => ({
     ...p,
     total_task_pages: (p.tasks ?? []).reduce((sum, t) => sum + (t.final_pages ?? 0), 0) || 0,
+    tasks: (p.tasks ?? []).map(t => ({
+      ...t,
+      task_types: Array.isArray(t.task_types) ? t.task_types[0] ?? null : t.task_types,
+      assigned_name: t.assigned_to_id
+        ? (t.assigned_to_type === "Employee" ? empMap.get(t.assigned_to_id) : venMap.get(t.assigned_to_id)) ?? "—"
+        : "—",
+    })),
   }));
 }
 
