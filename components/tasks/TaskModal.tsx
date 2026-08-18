@@ -138,11 +138,17 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
     else if (sp === 0 || !sourcePagesVal) setValue("final_pages", null);
   }, [sourcePagesVal, finalOverride, setValue]);
 
-  const isHydrating = useRef(false);
+  const prevWorkType = useRef<string | null>(null);
 
-  // Sync assigned_to_type when work type changes (skip during edit hydration)
+  // Only clear assignee when the user actively switches work type, not on initial hydration
   useEffect(() => {
-    if (isHydrating.current) return;
+    if (prevWorkType.current === null) {
+      // First render — just record the value, don't clear anything
+      prevWorkType.current = workType;
+      return;
+    }
+    if (prevWorkType.current === workType) return;
+    prevWorkType.current = workType;
     setValue("assigned_to_type", workType === "Inhouse" ? "Employee" : "Vendor");
     setValue("assigned_to_id", "");
   }, [workType, setValue]);
@@ -180,7 +186,7 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
 
   useEffect(() => {
     if (task) {
-      isHydrating.current = true;
+      prevWorkType.current = task.work_type;  // seed so first render doesn't clear
       setFinalOverride(true);
       reset({
         task_type_id:        task.task_type_id,
@@ -203,6 +209,7 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
       // Allow one render cycle before re-enabling the work_type watcher
       setTimeout(() => { isHydrating.current = false; }, 0);
     } else {
+      prevWorkType.current = null;  // reset so new task starts fresh
       setFinalOverride(false);
       reset(defaultValues);
     }
