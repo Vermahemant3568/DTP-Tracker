@@ -206,8 +206,6 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
         task_delivery_date:  task.task_delivery_date   ?? null,
         status:              task.status,
       });
-      // Allow one render cycle before re-enabling the work_type watcher
-      setTimeout(() => { isHydrating.current = false; }, 0);
     } else {
       prevWorkType.current = null;  // reset so new task starts fresh
       setFinalOverride(false);
