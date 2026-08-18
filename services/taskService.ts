@@ -77,8 +77,13 @@ export async function fetchTasks(projectId: string): Promise<Task[]> {
           .then(({ data: d }) => Object.fromEntries((d ?? []).map((e) => [e.id, e.full_name])))
       : Promise.resolve({} as Record<string, string>),
     allVndIds.length > 0
-      ? supabase.from("vendors").select("id, company_name").in("id", allVndIds)
-          .then(({ data: d }) => Object.fromEntries((d ?? []).map((v) => [v.id, v.company_name])))
+      ? supabase.from("vendors").select("id, company_name, contact_name").in("id", allVndIds)
+          .then(({ data: d }) => Object.fromEntries(
+            (d ?? []).map((v) => [
+              v.id,
+              v.contact_name ? `${v.contact_name} (${v.company_name})` : v.company_name,
+            ])
+          ))
       : Promise.resolve({} as Record<string, string>),
   ]);
 

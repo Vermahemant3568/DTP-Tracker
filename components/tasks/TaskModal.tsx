@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -138,8 +138,11 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
     else if (sp === 0 || !sourcePagesVal) setValue("final_pages", null);
   }, [sourcePagesVal, finalOverride, setValue]);
 
-  // Sync assigned_to_type when work type changes
+  const isHydrating = useRef(false);
+
+  // Sync assigned_to_type when work type changes (skip during edit hydration)
   useEffect(() => {
+    if (isHydrating.current) return;
     setValue("assigned_to_type", workType === "Inhouse" ? "Employee" : "Vendor");
     setValue("assigned_to_id", "");
   }, [workType, setValue]);
@@ -177,6 +180,7 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
 
   useEffect(() => {
     if (task) {
+      isHydrating.current = true;
       setFinalOverride(true);
       reset({
         task_type_id:        task.task_type_id,
@@ -196,6 +200,8 @@ export default function TaskModal({ open, projectId, task, onClose, onSuccess }:
         task_delivery_date:  task.task_delivery_date   ?? null,
         status:              task.status,
       });
+      // Allow one render cycle before re-enabling the work_type watcher
+      setTimeout(() => { isHydrating.current = false; }, 0);
     } else {
       setFinalOverride(false);
       reset(defaultValues);
