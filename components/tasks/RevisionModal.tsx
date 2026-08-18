@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,7 +92,15 @@ export default function RevisionModal({
   const paymentStatus = watch("payment_status");
   const langIds       = watch("language_ids");
 
+  const prevWorkType = useRef<string | null>(null);
+
   useEffect(() => {
+    if (prevWorkType.current === null) {
+      prevWorkType.current = workType;
+      return;
+    }
+    if (prevWorkType.current === workType) return;
+    prevWorkType.current = workType;
     setValue("assigned_to_type", workType === "Inhouse" ? "Employee" : "Vendor");
     setValue("assigned_to_id", "");
   }, [workType, setValue]);
@@ -112,6 +120,7 @@ export default function RevisionModal({
 
   useEffect(() => {
     if (revision) {
+      prevWorkType.current = revision.work_type;
       reset({
         revision_type:    revision.revision_type,
         work_type:        revision.work_type,
@@ -124,6 +133,7 @@ export default function RevisionModal({
         revision_notes:   revision.revision_notes   ?? "",
       });
     } else {
+      prevWorkType.current = null;
       reset(defaultValues);
     }
   }, [revision, reset]);

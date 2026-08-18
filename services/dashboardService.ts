@@ -34,18 +34,20 @@ export async function fetchDashboardData(year: number, month: number): Promise<D
   const endYear = month === 12 ? year + 1 : year;
   const endDate = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
 
-  const [projectsRes, tasksRes, taskTypesRes, revisionsRes] = await Promise.all([
+  const [projectsRes, tasksRes, taskTypesRes, revisionsRes, allRevisionsRes] = await Promise.all([
     supabase.from("projects").select("id", { count: "exact", head: true }),
     supabase.from("tasks").select("id, work_type, final_pages, status, task_type_id, created_at, task_received_date, task_types(id, name)"),
     supabase.from("task_types").select("id, name").eq("status", "active").order("name"),
-    supabase.from("task_revisions").select("id, work_type, revision_pages, created_at")
+    supabase.from("task_revisions").select("id, task_id, work_type, revision_pages, created_at")
       .gte("created_at", startDate).lt("created_at", endDate),
+    supabase.from("task_revisions").select("id, task_id, work_type, revision_pages"),
   ]);
 
-  if (projectsRes.error) throw new Error(projectsRes.error.message);
-  if (tasksRes.error) throw new Error(tasksRes.error.message);
-  if (taskTypesRes.error) throw new Error(taskTypesRes.error.message);
-  if (revisionsRes.error) throw new Error(revisionsRes.error.message);
+  if (projectsRes.error)     throw new Error(projectsRes.error.message);
+  if (tasksRes.error)        throw new Error(tasksRes.error.message);
+  if (taskTypesRes.error)    throw new Error(taskTypesRes.error.message);
+  if (revisionsRes.error)    throw new Error(revisionsRes.error.message);
+  if (allRevisionsRes.error) throw new Error(allRevisionsRes.error.message);
 
   type RawTask = NonNullable<typeof tasksRes.data>[number];
   const allTasks = (tasksRes.data ?? []).map((t: RawTask) => ({
@@ -66,39 +68,60 @@ export async function fetchDashboardData(year: number, month: number): Promise<D
   // Filter by month_date (YYYY-MM-DD) so July tasks with a July received date
   // always appear under July regardless of when they were entered.
   const monthlyTasks = allTasks.filter(t => t.month_date >= startDate && t.month_date < endDate);
-  const revisions = revisionsRes.data ?? [];
+  const monthlyRevisions = revisionsRes.data ?? [];
+  const allRevisions     = allRevisionsRes.data ?? [];
 
   // Overall
   const totalProjects = projectsRes.count ?? 0;
   const totalTasks = allTasks.length;
-  const totalProductionPages = allTasks.reduce((s, t) => s + (t.final_pages ?? 0), 0);
+  const totalRevisionPages = allRevisions.reduce((s, r) => s + (r.revision_pages ?? 0), 0);
+  const totalProductionPages = allTasks.reduce((s, t) => s + (t.final_pages ?? 0), 0) + totalRevisionPages;
 
   // This month tasks
-  const monthlyPages = monthlyTasks.reduce((s, t) => s + (t.final_pages ?? 0), 0);
-  const monthlyInhousePages = monthlyTasks.filter(t => t.work_type === "Inhouse").reduce((s, t) => s + (t.final_pages ?? 0), 0);
-  const monthlyVendorPages = monthlyTasks.filter(t => t.work_type === "Vendor").reduce((s, t) => s + (t.final_pages ?? 0), 0);
+  const monthlyTaskPages        = monthlyTasks.filter(t => t.work_type === "Inhouse" || t.work_type === "Vendor").reduce((s, t) => s + (t.final_pages ?? 0), 0);
+  const monthlyTaskInhousePages = monthlyTasks.filter(t => t.work_type === "Inhouse").reduce((s, t) => s + (t.final_pages ?? 0), 0);
+  const monthlyTaskVendorPages  = monthlyTasks.filter(t => t.work_type === "Vendor").reduce((s, t) => s + (t.final_pages ?? 0), 0);
 
   // This month revisions
-  const monthlyRevisionCount = revisions.length;
-  const monthlyRevisionPages = revisions.reduce((s, r) => s + (r.revision_pages ?? 0), 0);
-  const monthlyRevisionInhousePages = revisions.filter(r => r.work_type === "Inhouse").reduce((s, r) => s + (r.revision_pages ?? 0), 0);
-  const monthlyRevisionVendorPages = revisions.filter(r => r.work_type === "Vendor").reduce((s, r) => s + (r.revision_pages ?? 0), 0);
+  const monthlyRevisionCount        = monthlyRevisions.length;
+  const monthlyRevisionPages        = monthlyRevisions.reduce((s, r) => s + (r.revision_pages ?? 0), 0);
+  const monthlyRevisionInhousePages = monthlyRevisions.filter(r => r.work_type === "Inhouse").reduce((s, r) => s + (r.revision_pages ?? 0), 0);
+  const monthlyRevisionVendorPages  = monthlyRevisions.filter(r => r.work_type === "Vendor").reduce((s, r) => s + (r.revision_pages ?? 0), 0);
+
+  // Combined monthly pages (tasks + revisions)
+  const monthlyPages        = monthlyTaskPages        + monthlyRevisionPages;
+  const monthlyInhousePages = monthlyTaskInhousePages + monthlyRevisionInhousePages;
+  const monthlyVendorPages  = monthlyTaskVendorPages  + monthlyRevisionVendorPages;
 
   // This month task statuses
   const monthlyTasksPending = monthlyTasks.filter(t => t.status === "pending").length;
   const monthlyTasksInProgress = monthlyTasks.filter(t => t.status === "in_progress").length;
   const monthlyTasksCompleted = monthlyTasks.filter(t => t.status === "completed").length;
 
-  // Per task type (numbers filtered by selected month, all types always shown)
+  // Per task type — include revision pages belonging to tasks of that type
+  const taskRevisionsByTaskId = new Map<string, { inhouse: number; vendor: number }>();
+  allRevisions.forEach(r => {
+    const existing = taskRevisionsByTaskId.get(r.task_id) ?? { inhouse: 0, vendor: 0 };
+    if (r.work_type === "Inhouse") existing.inhouse += r.revision_pages ?? 0;
+    else existing.vendor += r.revision_pages ?? 0;
+    taskRevisionsByTaskId.set(r.task_id, existing);
+  });
+
   const taskTypes = taskTypesRes.data ?? [];
   const taskTypeSummaries: TaskTypeSummary[] = taskTypes.map(tt => {
     const tasks = monthlyTasks.filter(t => t.task_type_id === tt.id);
+    const taskPages = tasks.reduce((s, t) => s + (t.final_pages ?? 0), 0);
+    const taskInhouse = tasks.filter(t => t.work_type === "Inhouse").reduce((s, t) => s + (t.final_pages ?? 0), 0);
+    const taskVendor = tasks.filter(t => t.work_type === "Vendor").reduce((s, t) => s + (t.final_pages ?? 0), 0);
+    // Add revision pages for tasks of this type that fall in this month
+    const revInhouse = tasks.reduce((s, t) => s + (taskRevisionsByTaskId.get(t.id)?.inhouse ?? 0), 0);
+    const revVendor  = tasks.reduce((s, t) => s + (taskRevisionsByTaskId.get(t.id)?.vendor  ?? 0), 0);
     return {
       id: tt.id,
       name: tt.name,
-      totalPages: tasks.reduce((s, t) => s + (t.final_pages ?? 0), 0),
-      inhousePages: tasks.filter(t => t.work_type === "Inhouse").reduce((s, t) => s + (t.final_pages ?? 0), 0),
-      vendorPages: tasks.filter(t => t.work_type === "Vendor").reduce((s, t) => s + (t.final_pages ?? 0), 0),
+      totalPages:   taskPages + revInhouse + revVendor,
+      inhousePages: taskInhouse + revInhouse,
+      vendorPages:  taskVendor  + revVendor,
       taskCount: tasks.length,
     };
   });
