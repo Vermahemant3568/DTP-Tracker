@@ -9,17 +9,20 @@ import { useRouter } from "next/navigation";
 import {
   X, Check, AlertTriangle, FolderKanban,
   User, Calendar, FileText, Globe, Hash, StickyNote, Search,
-  ChevronDown, ChevronUp, FolderOpen,
+  ChevronDown, ChevronUp, FolderOpen, Plus, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   fetchClients, fetchEmployees, fetchSourceLanguages, fetchTargetLanguages,
   insertProject, updateProject, fetchProjectNamesByClient,
+  fetchProjectLanguages, fetchDtpTeam,
 } from "@/services/projectService";
-import { fetchTasks } from "@/services/taskService";
+import { fetchTasks, insertTask } from "@/services/taskService";
+import { fetchTaskTypes }         from "@/services/taskTypeService";
+import { fetchVendors }           from "@/services/vendorService";
 import type {
-  Client, Employee, Language, Project, ProjectStatus,
+  Client, Employee, Language, Project, ProjectStatus, TaskType, Vendor,
 } from "@/types/database";
 import SearchableSelect from "@/components/ui/searchable-select";
 
@@ -77,13 +80,30 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
   const [employees,       setEmployees]       = useState<Employee[]>([]);
   const [sourceLanguages, setSourceLanguages] = useState<Language[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<Language[]>([]);
-  const [loading,           setLoading]           = useState(false);
-  const [openTaskCount,     setOpenTaskCount]     = useState(0);
-  const [totalTasks,        setTotalTasks]        = useState(0);
-  const [clientProjects,    setClientProjects]    = useState<{ id: string; project_name: string; project_code: string }[]>([]);
-  const [isDuplicate,       setIsDuplicate]       = useState(false);
+  const [loading,            setLoading]            = useState(false);
+  const [openTaskCount,      setOpenTaskCount]      = useState(0);
+  const [totalTasks,         setTotalTasks]         = useState(0);
+  const [clientProjects,     setClientProjects]     = useState<{ id: string; project_name: string; project_code: string }[]>([]);
+  const [isDuplicate,        setIsDuplicate]        = useState(false);
   const [showClientProjects, setShowClientProjects] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── First-task state ──────────────────────────────────────
+  const [addTask,       setAddTask]       = useState(false);
+  const [taskTypes,     setTaskTypes]     = useState<TaskType[]>([]);
+  const [dtpTeam,       setDtpTeam]       = useState<Employee[]>([]);
+  const [vendors,       setVendors]       = useState<Vendor[]>([]);
+
+  // task sub-form state
+  const [tTaskTypeId,   setTTaskTypeId]   = useState("");
+  const [tWorkType,     setTWorkType]     = useState<"Inhouse" | "Vendor">("Inhouse");
+  const [tAssigneeId,   setTAssigneeId]   = useState("");
+  const [tSourcePages,  setTSourcePages]  = useState("");
+  const [tPayment,      setTPayment]      = useState<"Unpaid" | "Paid">("Unpaid");
+  const [tRate,         setTRate]         = useState("");
+  const [tDelivery,     setTDelivery]     = useState("");
+  const [tNotes,        setTNotes]        = useState("");
+  const [tErrors,       setTErrors]       = useState<Record<string, string>>({});
 
   const { register, handleSubmit, control, watch, reset, formState: { errors, isSubmitting } } =
     useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
@@ -93,14 +113,27 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
   const watchedName     = watch("project_name");
   const [langSearch, setLangSearch] = useState("");
 
+  function resetTaskForm() {
+    setAddTask(false);
+    setTTaskTypeId(""); setTWorkType("Inhouse"); setTAssigneeId("");
+    setTSourcePages(""); setTPayment("Unpaid"); setTRate("");
+    setTDelivery(""); setTNotes(""); setTErrors({});
+  }
+
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setClientProjects([]);
     setIsDuplicate(false);
     setShowClientProjects(false);
-    const lookups = Promise.all([fetchClients(), fetchEmployees(), fetchSourceLanguages(), fetchTargetLanguages()])
-      .then(([c, e, sl, tl]) => { setClients(c); setEmployees(e); setSourceLanguages(sl); setTargetLanguages(tl); });
+    resetTaskForm();
+    const lookups = Promise.all([
+      fetchClients(), fetchEmployees(), fetchSourceLanguages(), fetchTargetLanguages(),
+      fetchTaskTypes(), fetchVendors(), fetchDtpTeam(),
+    ]).then(([c, e, sl, tl, tt, vnd, dtp]) => {
+      setClients(c); setEmployees(e); setSourceLanguages(sl); setTargetLanguages(tl);
+      setTaskTypes(tt); setVendors(vnd); setDtpTeam(dtp);
+    });
     const taskCheck = project
       ? fetchTasks(project.id).then(tasks => {
           setTotalTasks(tasks.length);
@@ -165,17 +198,74 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
       toast.error(`Cannot mark as Completed — ${openTaskCount} task${openTaskCount > 1 ? "s are" : " is"} still open.`);
       return;
     }
+
+    // Validate task sub-form if toggled
+    if (addTask) {
+      const errs: Record<string, string> = {};
+      if (!tTaskTypeId)  errs.task_type = "Task type is required";
+      if (!tAssigneeId)  errs.assignee  = "Assignee is required";
+      if (!tSourcePages || Number(tSourcePages) < 1) errs.source_pages = "Source pages required";
+      if (tPayment === "Paid" && (!tRate || Number(tRate) <= 0)) errs.rate = "Rate required when Paid";
+      if (Object.keys(errs).length > 0) { setTErrors(errs); return; }
+    }
+
     try {
       if (isEdit) {
         await updateProject(project!.id, payload);
         toast.success(`Project "${payload.project_name}" updated`);
+        onSuccess(); onClose();
       } else {
         const code = await insertProject(payload);
-        toast.success(`Project created — ${code}`);
-        reset(defaultValues);
+
+        // Get the new project id to attach the task and navigate
+        const { data: newProj } = await (await import("@/lib/supabase")).supabase
+          .from("projects").select("id").eq("project_code", code).single();
+        const newProjectId = newProj?.id as string;
+
+        if (addTask && newProjectId) {
+          // Resolve language ids from the newly created project
+          const projLangs = await fetchProjectLanguages(newProjectId);
+          // Build unique language list matching TaskModal logic: source first, then targets, no duplicates
+          const seen = new Set<string>();
+          const langIds: string[] = [];
+          if (projLangs.sourceLanguage) {
+            seen.add(projLangs.sourceLanguage.id);
+            langIds.push(projLangs.sourceLanguage.id);
+          }
+          projLangs.targetLanguages.forEach(l => {
+            if (!seen.has(l.id)) { seen.add(l.id); langIds.push(l.id); }
+          });
+          const sp = Number(tSourcePages);
+          const nl = langIds.length;
+          await insertTask(newProjectId, {
+            task_type_id:        tTaskTypeId,
+            work_type:           tWorkType,
+            assigned_to_id:      tAssigneeId,
+            assigned_to_type:    tWorkType === "Inhouse" ? "Employee" : "Vendor",
+            task_language_ids:   langIds,
+            payment_status:      tPayment,
+            rate_per_page:       tPayment === "Paid" ? Number(tRate) : null,
+            source_pages:        sp || null,
+            number_of_languages: nl || null,
+            final_pages:         sp > 0 && nl > 0 ? sp * nl : sp || null,
+            source_file_link:    "",
+            deliverable_link:    "",
+            task_notes:          tNotes,
+            task_received_date:  null,
+            task_delivery_date:  tDelivery || null,
+            status:              "pending",
+          });
+          toast.success(`Project ${code} created with initial task`);
+          reset(defaultValues);
+          onSuccess(); onClose();
+          router.push(`/projects/${newProjectId}`);
+        } else {
+          toast.success(`Project created — ${code}`);
+          reset(defaultValues);
+          onSuccess(); onClose();
+          if (newProjectId) router.push(`/projects/${newProjectId}`);
+        }
       }
-      onSuccess();
-      onClose();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     }
@@ -473,6 +563,197 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
                 </Section>
               )}
 
+              {/* ── Section: Add First Task (new project only) ── */}
+              {!isEdit && (
+                <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/30 overflow-hidden">
+
+                  {/* Toggle header */}
+                  <button
+                    type="button"
+                    onClick={() => { setAddTask(v => !v); }}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50/60 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors ${
+                        addTask ? "bg-indigo-600" : "bg-white border border-indigo-200"
+                      }`}>
+                        {addTask
+                          ? <Check size={13} className="text-white" />
+                          : <Plus size={13} className="text-indigo-500" />}
+                      </div>
+                      <div className="text-left">
+                        <p className={`text-sm font-semibold ${addTask ? "text-indigo-700" : "text-gray-700"}`}>
+                          Add First Task
+                        </p>
+                        <p className="text-[11px] text-gray-400">Optional — attach an initial task right away</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {addTask && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+                          Active
+                        </span>
+                      )}
+                      {addTask ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+                    </div>
+                  </button>
+
+                  {/* Task sub-form */}
+                  {addTask && (
+                    <div className="px-4 pb-4 space-y-4 border-t border-indigo-100">
+
+                      {/* Task type + Work type */}
+                      <div className="grid grid-cols-2 gap-3 pt-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">
+                            Task Type <span className="text-red-500">*</span>
+                          </label>
+                          <SearchableSelect
+                            options={taskTypes.map(t => ({ value: t.id, label: t.name }))}
+                            value={tTaskTypeId}
+                            onChange={setTTaskTypeId}
+                            placeholder="Select task type…"
+                            error={!!tErrors.task_type}
+                          />
+                          {tErrors.task_type && <TErr msg={tErrors.task_type} />}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Work Type</label>
+                          <div className="flex gap-2 h-9">
+                            {(["Inhouse", "Vendor"] as const).map(wt => (
+                              <button key={wt} type="button"
+                                onClick={() => { setTWorkType(wt); setTAssigneeId(""); }}
+                                className={`flex-1 rounded-xl border text-xs font-semibold transition-all ${
+                                  tWorkType === wt
+                                    ? wt === "Inhouse"
+                                      ? "bg-violet-600 border-violet-600 text-white shadow-sm"
+                                      : "bg-orange-500 border-orange-500 text-white shadow-sm"
+                                    : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                                }`}>
+                                {wt === "Inhouse" ? "🏢 Inhouse" : "🤝 Vendor"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Assignee */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">
+                          {tWorkType === "Inhouse" ? "Assigned Employee" : "Assigned Vendor"}
+                          <span className="text-red-500 ml-0.5">*</span>
+                        </label>
+                        <SearchableSelect
+                          key={tWorkType}
+                          options={
+                            tWorkType === "Inhouse"
+                              ? dtpTeam.map(e => ({
+                                  value: e.id,
+                                  label: e.full_name + (e.designation ? ` — ${e.designation}` : ""),
+                                }))
+                              : vendors.map(v => ({
+                                  value: v.id,
+                                  label: v.company_name + (v.contact_name ? ` (${v.contact_name})` : ""),
+                                }))
+                          }
+                          value={tAssigneeId}
+                          onChange={setTAssigneeId}
+                          placeholder={tWorkType === "Inhouse" ? "Search employee…" : "Search vendor…"}
+                          error={!!tErrors.assignee}
+                        />
+                        {(tWorkType === "Inhouse" ? dtpTeam : vendors).length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No {tWorkType === "Inhouse" ? "DTP team employees" : "vendors"} found.
+                          </p>
+                        )}
+                        {tErrors.assignee && <TErr msg={tErrors.assignee} />}
+                      </div>
+
+                      {/* Source pages + Payment + Rate + Delivery */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">
+                            Source Pages <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number" min={1}
+                            value={tSourcePages}
+                            onChange={e => setTSourcePages(e.target.value)}
+                            placeholder="e.g. 10"
+                            className={tSubInputCls(!!tErrors.source_pages)}
+                          />
+                          {tErrors.source_pages && <TErr msg={tErrors.source_pages} />}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Delivery Date</label>
+                          <input
+                            type="date"
+                            value={tDelivery}
+                            onChange={e => setTDelivery(e.target.value)}
+                            className={tSubInputCls(false)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Payment */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Payment Status</label>
+                          <div className="flex gap-2 h-9">
+                            {(["Unpaid", "Paid"] as const).map(ps => (
+                              <button key={ps} type="button"
+                                onClick={() => { setTPayment(ps); if (ps === "Unpaid") setTRate(""); }}
+                                className={`flex-1 rounded-xl border text-xs font-semibold transition-all ${
+                                  tPayment === ps
+                                    ? ps === "Unpaid" ? "bg-red-500 border-red-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
+                                    : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                                }`}>
+                                {ps === "Unpaid" ? "⏳ Unpaid" : "✅ Paid"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">
+                            Rate Per Page (₹){tPayment === "Paid" && <span className="text-red-500 ml-0.5">*</span>}
+                          </label>
+                          <input
+                            type="number" min={0} step="0.01"
+                            value={tRate}
+                            onChange={e => setTRate(e.target.value)}
+                            disabled={tPayment === "Unpaid"}
+                            placeholder={tPayment === "Unpaid" ? "N/A" : "e.g. 12.50"}
+                            className={`${tSubInputCls(!!tErrors.rate)} ${tPayment === "Unpaid" ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+                          />
+                          {tErrors.rate && <TErr msg={tErrors.rate} />}
+                        </div>
+                      </div>
+
+                      {/* Notes */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Task Notes</label>
+                        <textarea
+                          rows={2}
+                          value={tNotes}
+                          onChange={e => setTNotes(e.target.value)}
+                          placeholder="Any instructions for this task…"
+                          className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none resize-none transition-colors focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 placeholder-gray-400"
+                        />
+                      </div>
+
+                      {/* Info banner */}
+                      <div className="flex items-start gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2.5">
+                        <Zap size={13} className="text-indigo-500 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-indigo-600">
+                          Task languages will be auto-set from the project’s source &amp; target languages.
+                          Final pages = source pages × number of languages.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── Section: Notes ── */}
               <Section icon={<StickyNote size={14} />} title="Notes">
                 <textarea
@@ -560,3 +841,17 @@ const selectCls = (err: boolean) =>
   `h-9 w-full rounded-xl border px-3 text-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white ${
     err ? "border-red-300" : "border-gray-200"
   }`;
+
+// Task sub-form helpers
+const tSubInputCls = (err: boolean) =>
+  `h-9 w-full rounded-xl border px-3 text-sm outline-none transition-colors focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 placeholder-gray-400 bg-white ${
+    err ? "border-red-300 bg-red-50/30" : "border-gray-200"
+  }`;
+
+function TErr({ msg }: { msg: string }) {
+  return (
+    <p className="text-xs text-red-500 mt-0.5 flex items-center gap-1">
+      <AlertTriangle size={11} />{msg}
+    </p>
+  );
+}

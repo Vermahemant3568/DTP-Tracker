@@ -1,14 +1,23 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search } from "lucide-react";
+import { useState } from "react";
 import { navigation } from "@/config/navigation";
 import UserMenu from "./UserMenu";
 
 export default function Header() {
   const pathname  = usePathname();
+  const router    = useRouter();
   const current   = navigation.find((item) => item.href === pathname);
   const Icon      = current?.icon;
+  const [query, setQuery] = useState("");
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" || !query.trim()) return;
+    router.push(`/projects?q=${encodeURIComponent(query.trim())}`);
+    setQuery("");
+  };
 
   return (
     <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 shrink-0 bg-white border-b border-gray-100 shadow-[0_1px_3px_0_rgb(0,0,0,0.04)]">
@@ -44,7 +53,10 @@ export default function Header() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search…"
+            placeholder="Search projects…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={handleSearch}
             className="h-9 w-52 rounded-xl border border-gray-200 bg-gray-50/80 pl-8 pr-10 text-sm outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-gray-400 text-gray-700"
           />
           <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-400 shadow-sm pointer-events-none">

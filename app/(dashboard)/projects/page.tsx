@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
 import {
   Pencil, Trash2, Plus, RefreshCw, Eye, Search,
   FolderKanban, Clock, Loader2, CheckCircle2, PauseCircle,
-  X, ChevronDown,
+  X, ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { fetchProjects, deleteProject } from "@/services/projectService";
@@ -101,20 +101,28 @@ const EMPTY_FILTERS = {
 
 type Filters = typeof EMPTY_FILTERS;
 
-export default function ProjectsPage() {
-  const router = useRouter();
+function ProjectsPage() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
   const [projects,     setProjects]     = useState<Project[]>([]);
   const [fetching,     setFetching]     = useState(true);
   const [modalOpen,    setModalOpen]    = useState(false);
   const [editProject,  setEditProject]  = useState<Project | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting,     setDeleting]     = useState(false);
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<Filters>(() => ({
+    ...EMPTY_FILTERS,
+    search: searchParams.get("q") ?? "",
+  }));
+  const [page,    setPage]    = useState(1);
+  const PAGE_SIZE = 10;
 
-  const set = (key: keyof Filters, val: string) =>
+  const set = (key: keyof Filters, val: string) => {
     setFilters(f => ({ ...f, [key]: val }));
+    setPage(1);
+  };
 
-  const clearAll = () => setFilters(EMPTY_FILTERS);
+  const clearAll = () => { setFilters(EMPTY_FILTERS); setPage(1); };
 
   const loadProjects = useCallback(async () => {
     setFetching(true);
@@ -165,6 +173,9 @@ export default function ProjectsPage() {
       return true;
     });
   }, [projects, filters]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const hasFilters =
     filters.search !== "" ||
@@ -314,7 +325,7 @@ export default function ProjectsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((project, idx) => {
+                  paginated.map((project, idx) => {
                     const targetLangs = project.project_target_languages ?? [];
                     const rowBg = idx % 2 === 0 ? "bg-white" : "bg-slate-50/60";
                     return (
@@ -400,8 +411,50 @@ export default function ProjectsPage() {
           </div>
 
           {!fetching && filtered.length > 0 && (
-            <div className="px-5 py-2.5 border-t border-gray-100 bg-slate-50 text-xs text-gray-400">
-              Showing {filtered.length} of {projects.length} projects
+            <div className="px-5 py-3 border-t border-gray-100 bg-slate-50 flex items-center justify-between gap-4">
+              <p className="text-xs text-gray-400">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} project{filtered.length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={13} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                  .reduce<(number | "...")[]>((acc, n, i, arr) => {
+                    if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push("...");
+                    acc.push(n);
+                    return acc;
+                  }, [])
+                  .map((n, i) =>
+                    n === "..." ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-xs text-gray-400">…</span>
+                    ) : (
+                      <button
+                        key={n}
+                        onClick={() => setPage(n as number)}
+                        className={`h-7 min-w-[28px] px-1.5 rounded-md text-xs font-medium border transition-colors ${
+                          page === n
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    )
+                  )}
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRightIcon size={13} />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -421,5 +474,13 @@ export default function ProjectsPage() {
         onCancel={() => setDeleteTarget(null)}
       />
     </>
+  );
+}
+
+export default function ProjectsPageWrapper() {
+  return (
+    <Suspense>
+      <ProjectsPage />
+    </Suspense>
   );
 }

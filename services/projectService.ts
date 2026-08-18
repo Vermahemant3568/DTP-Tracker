@@ -15,7 +15,7 @@ interface ProjectInput {
 
 // Re-export lookup fetchers — modal only needs one import
 export { fetchClients }                                                from "./clientService";
-export { fetchCoordinators as fetchEmployees }                         from "./employeeService";
+export { fetchCoordinators as fetchEmployees, fetchEmployees as fetchDtpTeam } from "./employeeService";
 export { fetchSourceLanguages, fetchTargetLanguages }                  from "./languageService";
 
 // ── Fetch project languages (source + targets) for task modal ─

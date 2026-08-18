@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { ExternalLink, Pencil, Trash2, ChevronDown, ChevronRight, Plus, RotateCcw, Eye } from "lucide-react";
 import { toast } from "sonner";
 import type { Task, TaskRevision } from "@/types/database";
@@ -155,9 +155,9 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                   const rowBg      = idx % 2 === 0 ? "bg-white" : "bg-slate-50/60";
 
                   return (
-                    <>
+                    <Fragment key={task.id}>
                       {/* ── Task row ── */}
-                      <tr key={task.id} className={`${rowBg} hover:bg-blue-50/30 transition-colors border-b border-gray-100 last:border-0`}>
+                      <tr className={`${rowBg} hover:bg-blue-50/30 transition-colors border-b border-gray-100 last:border-0`}>
 
                         {/* Expand toggle */}
                         <td className="px-3 py-3.5">
@@ -383,7 +383,7 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })
               )}
