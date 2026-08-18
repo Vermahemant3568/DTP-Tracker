@@ -46,6 +46,20 @@ export async function fetchProjectLanguages(projectId: string): Promise<{
   };
 }
 
+// ── Fetch project names for a client (duplicate check) ──────
+
+export async function fetchProjectNamesByClient(
+  clientId: string
+): Promise<{ id: string; project_name: string; project_code: string }[]> {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, project_name, project_code")
+    .eq("client_id", clientId)
+    .order("project_name");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 // ── Fetch all projects with joined relations ──────────────────
 
 export async function fetchProjects(): Promise<Project[]> {

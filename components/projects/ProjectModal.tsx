@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   X, Check, AlertTriangle, FolderKanban,
   User, Calendar, FileText, Globe, Hash, StickyNote, Search,
+  ChevronDown, ChevronUp, FolderOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   fetchClients, fetchEmployees, fetchSourceLanguages, fetchTargetLanguages,
-  insertProject, updateProject,
+  insertProject, updateProject, fetchProjectNamesByClient,
 } from "@/services/projectService";
 import { fetchTasks } from "@/services/taskService";
 import type {
@@ -68,24 +71,34 @@ const defaultValues: FormValues = {
 
 export default function ProjectModal({ open, project, onClose, onSuccess }: ProjectModalProps) {
   const isEdit = !!project;
+  const router = useRouter();
 
   const [clients,         setClients]         = useState<Client[]>([]);
   const [employees,       setEmployees]       = useState<Employee[]>([]);
   const [sourceLanguages, setSourceLanguages] = useState<Language[]>([]);
   const [targetLanguages, setTargetLanguages] = useState<Language[]>([]);
-  const [loading,         setLoading]         = useState(false);
-  const [openTaskCount,   setOpenTaskCount]   = useState(0);
-  const [totalTasks,      setTotalTasks]      = useState(0);
+  const [loading,           setLoading]           = useState(false);
+  const [openTaskCount,     setOpenTaskCount]     = useState(0);
+  const [totalTasks,        setTotalTasks]        = useState(0);
+  const [clientProjects,    setClientProjects]    = useState<{ id: string; project_name: string; project_code: string }[]>([]);
+  const [isDuplicate,       setIsDuplicate]       = useState(false);
+  const [showClientProjects, setShowClientProjects] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { register, handleSubmit, control, watch, reset, formState: { errors, isSubmitting } } =
     useForm<FormValues>({ resolver: zodResolver(schema), defaultValues });
 
-  const watchedStatus  = watch("status");
-  const [langSearch,   setLangSearch]   = useState("");
+  const watchedStatus   = watch("status");
+  const watchedClientId = watch("client_id");
+  const watchedName     = watch("project_name");
+  const [langSearch, setLangSearch] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
+    setClientProjects([]);
+    setIsDuplicate(false);
+    setShowClientProjects(false);
     const lookups = Promise.all([fetchClients(), fetchEmployees(), fetchSourceLanguages(), fetchTargetLanguages()])
       .then(([c, e, sl, tl]) => { setClients(c); setEmployees(e); setSourceLanguages(sl); setTargetLanguages(tl); });
     const taskCheck = project
@@ -98,6 +111,32 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
       .catch(() => toast.error("Failed to load form data."))
       .finally(() => setLoading(false));
   }, [open, project]);
+
+  // Fetch client projects when client changes
+  const loadClientProjects = useCallback(async (clientId: string) => {
+    if (!clientId) { setClientProjects([]); setIsDuplicate(false); return; }
+    try {
+      const list = await fetchProjectNamesByClient(clientId);
+      // Exclude current project when editing
+      setClientProjects(project ? list.filter(p => p.id !== project.id) : list);
+    } catch { /* silent */ }
+  }, [project]);
+
+  useEffect(() => {
+    setShowClientProjects(false);
+    loadClientProjects(watchedClientId);
+  }, [watchedClientId, loadClientProjects]);
+
+  // Debounced duplicate check on name change
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const trimmed = watchedName?.trim().toLowerCase();
+      if (!trimmed || clientProjects.length === 0) { setIsDuplicate(false); return; }
+      setIsDuplicate(clientProjects.some(p => p.project_name.trim().toLowerCase() === trimmed));
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [watchedName, clientProjects]);
 
   useEffect(() => {
     if (project) {
@@ -145,6 +184,7 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
   if (!open) return null;
 
   const blockCompleted = watchedStatus === "completed" && openTaskCount > 0;
+  const blockSubmit    = isDuplicate || blockCompleted;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -197,16 +237,44 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
                           error={!!errors.client_id}
                         />
                         {selectedClient && (
-                          <div className="flex items-center gap-2.5 rounded-xl bg-blue-50 border border-blue-100 px-3.5 py-2.5">
-                            <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                              <span className="text-xs font-bold text-white">
-                                {selectedClient.company_name.charAt(0).toUpperCase()}
-                              </span>
+                          <div className="flex items-center justify-between gap-2 rounded-xl bg-blue-50 border border-blue-100 px-3.5 py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                                <span className="text-xs font-bold text-white">
+                                  {selectedClient.company_name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-blue-800">{selectedClient.company_name}</p>
+                                <p className="text-xs text-blue-500">Selected client</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-semibold text-blue-800">{selectedClient.company_name}</p>
-                              <p className="text-xs text-blue-500">Selected client</p>
-                            </div>
+                            {clientProjects.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowClientProjects(v => !v)}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium shrink-0 transition-colors"
+                              >
+                                <FolderOpen size={12} />
+                                {showClientProjects ? "Hide" : `View ${clientProjects.length} existing project${clientProjects.length !== 1 ? "s" : ""}`}
+                                {showClientProjects ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {showClientProjects && clientProjects.length > 0 && (
+                          <div className="rounded-xl border border-gray-200 bg-gray-50 divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                            {clientProjects.map(cp => (
+                              <button
+                                key={cp.id}
+                                type="button"
+                                onClick={() => { onClose(); router.push(`/projects/${cp.id}`); }}
+                                className="w-full flex items-center justify-between px-3 py-2 hover:bg-blue-50 transition-colors group"
+                              >
+                                <span className="text-xs text-gray-700 font-medium truncate group-hover:text-blue-700 transition-colors">{cp.project_name}</span>
+                                <span className="text-[10px] font-mono text-indigo-400 group-hover:text-blue-500 shrink-0 ml-2 transition-colors">{cp.project_code}</span>
+                              </button>
+                            ))}
                           </div>
                         )}
                         {errors.client_id && (
@@ -226,8 +294,14 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
                     <input
                       {...register("project_name")}
                       placeholder="e.g. Annual Report 2025"
-                      className={inputCls(!!errors.project_name)}
+                      className={inputCls(!!errors.project_name || isDuplicate)}
                     />
+                    {isDuplicate && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertTriangle size={11} />
+                        Project name already exists for this client
+                      </p>
+                    )}
                   </Field>
 
                   {/* Coordinator + Received Date — side by side */}
@@ -428,8 +502,8 @@ export default function ProjectModal({ open, project, onClose, onSuccess }: Proj
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="h-9 px-5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center gap-2"
+                  disabled={isSubmitting || blockSubmit}
+                  className="h-9 px-5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {isSubmitting && <div className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />}
                   {isSubmitting ? "Saving…" : isEdit ? "Update Project" : "Create Project"}
