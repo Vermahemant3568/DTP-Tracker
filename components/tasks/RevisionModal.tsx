@@ -33,7 +33,7 @@ const schema = z.object({
   language_ids:     z.array(z.string()),
   revision_pages:   z.string().or(z.number()).nullable()
     .transform(v => (v === "" || v === null) ? null : Number(v))
-    .pipe(z.number({ invalid_type_error: "Revision pages is required" }).int().positive("Must be a positive whole number")),
+    .pipe(z.number({ error: "Revision pages is required" }).int().positive("Must be a positive whole number")),
   rate_per_page:    z.string().or(z.number()).nullable()
     .transform(v => (v === "" || v === null) ? null : Number(v))
     .pipe(z.nullable(z.number().nonnegative("Must be ≥ 0"))),
