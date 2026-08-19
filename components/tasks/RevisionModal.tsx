@@ -141,13 +141,14 @@ export default function RevisionModal({
     }
   }, [revision, reset]);
 
-  const onSubmit = async (values: FormOutput) => {
+  const onSubmit = async (values: FormValues) => {
+    const output = values as unknown as FormOutput;
     try {
       if (isEdit) {
-        await updateRevision(revision!.id, values);
+        await updateRevision(revision!.id, output);
         toast.success("Revision updated");
       } else {
-        await insertRevision(taskId, values);
+        await insertRevision(taskId, output);
         toast.success(`Revision #${revisionNo} added`);
         reset(defaultValues);
       }
