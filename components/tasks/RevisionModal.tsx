@@ -25,25 +25,26 @@ const REVISION_TYPES: { value: RevisionType; label: string; color: string; activ
 
 // ── Schema ────────────────────────────────────────────────────
 
-const baseSchema = z.object({
+const schema = z.object({
   revision_type:    z.enum(["General", "Client", "QA", "Proofreading", "Internal"]),
   work_type:        z.enum(["Inhouse", "Vendor"]),
-  assigned_to_id:   z.string(),
+  assigned_to_id:   z.string().min(1, "Assignee is required"),
   assigned_to_type: z.enum(["Employee", "Vendor"]),
   language_ids:     z.array(z.string()),
   revision_pages:   z.string().or(z.number()).nullable()
     .transform(v => (v === "" || v === null) ? null : Number(v))
-    .pipe(z.number().int().positive("Revision pages must be positive")),
+    .pipe(z.number({ invalid_type_error: "Revision pages is required" }).int().positive("Must be a positive whole number")),
   rate_per_page:    z.string().or(z.number()).nullable()
     .transform(v => (v === "" || v === null) ? null : Number(v))
-    .pipe(z.number().nonnegative("Must be ≥ 0").nullable()),
+    .pipe(z.nullable(z.number().nonnegative("Must be ≥ 0"))),
   payment_status:   z.enum(["Paid", "Unpaid"]),
   revision_notes:   z.string(),
-});
+}).refine(
+  d => d.payment_status === "Unpaid" || (d.rate_per_page !== null && d.rate_per_page > 0),
+  { message: "Rate per page is required when Paid", path: ["rate_per_page"] }
+);
 
-type FormValues = z.input<typeof baseSchema>;
-
-const schema = baseSchema;
+type FormValues = z.input<typeof schema>;
 
 const defaultValues: FormValues = {
   revision_type:    "General",
@@ -62,8 +63,8 @@ const defaultValues: FormValues = {
 interface RevisionModalProps {
   open:          boolean;
   taskId:        string;
-  revisionNo:    number;           // e.g. 3 → "Revision #3"
-  taskLanguages: TaskLanguage[];   // languages from the parent task
+  revisionNo:    number;
+  taskLanguages: TaskLanguage[];
   revision?:     TaskRevision | null;
   onClose:       () => void;
   onSuccess:     () => void;
@@ -94,21 +95,21 @@ export default function RevisionModal({
 
   const prevWorkType = useRef<string | null>(null);
 
+  // Clear assignee only when user actively switches work type
   useEffect(() => {
-    if (prevWorkType.current === null) {
-      prevWorkType.current = workType;
-      return;
-    }
+    if (prevWorkType.current === null) { prevWorkType.current = workType; return; }
     if (prevWorkType.current === workType) return;
     prevWorkType.current = workType;
     setValue("assigned_to_type", workType === "Inhouse" ? "Employee" : "Vendor");
     setValue("assigned_to_id", "");
   }, [workType, setValue]);
 
+  // Clear rate when switching to Unpaid
   useEffect(() => {
     if (paymentStatus === "Unpaid") setValue("rate_per_page", null);
   }, [paymentStatus, setValue]);
 
+  // Load employees & vendors when modal opens
   useEffect(() => {
     if (!open) return;
     setLoading(true);
@@ -118,6 +119,7 @@ export default function RevisionModal({
       .finally(() => setLoading(false));
   }, [open]);
 
+  // Populate form when editing
   useEffect(() => {
     if (revision) {
       prevWorkType.current = revision.work_type;
@@ -126,7 +128,7 @@ export default function RevisionModal({
         work_type:        revision.work_type,
         assigned_to_id:   revision.assigned_to_id   ?? "",
         assigned_to_type: revision.assigned_to_type,
-        language_ids:     [],
+        language_ids:     (revision as any).language_ids ?? [],
         revision_pages:   revision.revision_pages,
         rate_per_page:    revision.rate_per_page     ?? null,
         payment_status:   revision.payment_status,
@@ -139,19 +141,12 @@ export default function RevisionModal({
   }, [revision, reset]);
 
   const onSubmit = async (values: FormValues) => {
-    const toNum = (v: string | number | null): number | null =>
-      v === "" || v === null ? null : Number(v);
-    const payload = {
-      ...values,
-      revision_pages: toNum(values.revision_pages),
-      rate_per_page:  toNum(values.rate_per_page),
-    };
     try {
       if (isEdit) {
-        await updateRevision(revision!.id, payload);
+        await updateRevision(revision!.id, values);
         toast.success("Revision updated");
       } else {
-        await insertRevision(taskId, payload);
+        await insertRevision(taskId, values);
         toast.success(`Revision #${revisionNo} added`);
         reset(defaultValues);
       }
@@ -166,8 +161,8 @@ export default function RevisionModal({
 
   const assigneeOpts: SelectOption[] =
     workType === "Inhouse"
-      ? employees.map((e) => ({ value: e.id, label: e.full_name + (e.designation ? ` — ${e.designation}` : "") }))
-      : vendors.map((v)   => ({ value: v.id, label: v.company_name + (v.contact_name ? ` (${v.contact_name})` : "") }));
+      ? employees.map(e => ({ value: e.id, label: e.full_name + (e.designation ? ` — ${e.designation}` : "") }))
+      : vendors.map(v   => ({ value: v.id, label: v.company_name + (v.contact_name ? ` (${v.contact_name})` : "") }));
 
   const allLangIds  = taskLanguages.map(l => l.language_id);
   const allSelected = allLangIds.length > 0 && allLangIds.every(id => langIds.includes(id));
@@ -231,10 +226,11 @@ export default function RevisionModal({
               {/* ── Section 2: Assignment ── */}
               <Section icon={<UserCheck size={14} />} title="Assignment">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
                   {/* Work Type */}
                   <Field label="Work Type" required>
                     <div className="flex gap-2 h-9">
-                      {(["Inhouse", "Vendor"] as const).map((wt) => (
+                      {(["Inhouse", "Vendor"] as const).map(wt => (
                         <Controller key={wt} control={control} name="work_type"
                           render={({ field }) => (
                             <button type="button" onClick={() => field.onChange(wt)}
@@ -255,7 +251,7 @@ export default function RevisionModal({
 
                   {/* Assigned To */}
                   <div className="sm:col-span-2">
-                    <Field label={workType === "Inhouse" ? "Assigned Employee" : "Assigned Vendor"}>
+                    <Field label={workType === "Inhouse" ? "Assigned Employee" : "Assigned Vendor"} error={errors.assigned_to_id?.message} required>
                       <Controller key={workType} control={control} name="assigned_to_id"
                         render={({ field }) => (
                           <SearchableSelect
@@ -263,6 +259,7 @@ export default function RevisionModal({
                             value={field.value}
                             onChange={field.onChange}
                             placeholder={workType === "Inhouse" ? "Search employee…" : "Search vendor…"}
+                            error={!!errors.assigned_to_id}
                           />
                         )}
                       />
@@ -325,6 +322,7 @@ export default function RevisionModal({
               {/* ── Section 4: Page & Payment ── */}
               <Section icon={<Calculator size={14} />} title="Page & Payment">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+
                   <Field label="Revision Pages" error={errors.revision_pages?.message} required>
                     <input type="number" min={1} {...register("revision_pages")}
                       placeholder="e.g. 20" className={inputCls(!!errors.revision_pages)} />
@@ -332,7 +330,7 @@ export default function RevisionModal({
 
                   <Field label="Payment Status" required>
                     <div className="flex gap-2 h-9">
-                      {(["Unpaid", "Paid"] as const).map((ps) => (
+                      {(["Unpaid", "Paid"] as const).map(ps => (
                         <Controller key={ps} control={control} name="payment_status"
                           render={({ field }) => (
                             <button type="button" onClick={() => field.onChange(ps)}
@@ -351,7 +349,7 @@ export default function RevisionModal({
                     </div>
                   </Field>
 
-                  <Field label="Rate Per Page (₹)" error={errors.rate_per_page?.message}>
+                  <Field label="Rate Per Page (₹)" error={errors.rate_per_page?.message} required={paymentStatus === "Paid"}>
                     <input type="number" min={0} step="0.01" {...register("rate_per_page")}
                       disabled={paymentStatus === "Unpaid"}
                       placeholder={paymentStatus === "Unpaid" ? "N/A" : "e.g. 12.50"}

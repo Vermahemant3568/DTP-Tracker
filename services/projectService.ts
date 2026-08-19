@@ -264,6 +264,7 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
         status,
         created_at,
         task_types ( id, name ),
+        task_languages ( language_id, languages ( language_name ) ),
         task_revisions ( id, revision_pages, work_type, assigned_to_id, assigned_to_type, created_at )
       )
     `)

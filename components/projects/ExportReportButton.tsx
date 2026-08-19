@@ -96,10 +96,9 @@ function buildRows(projects: Project[], months: MonthYear[]) {
         "Project Name":        p.project_name,
         "Project Coordinator": p.employees?.full_name ?? "—",
         "Source Language":     p.languages?.language_name ?? "—",
-        "Target Languages":    (p.project_target_languages ?? [])
+        "Target Languages":    (t?.task_languages ?? [])
                                  .map((tl: any) => tl.languages?.language_name)
                                  .filter(Boolean).join(", ") || "—",
-        "No. of Languages":    p.number_of_languages,
         "Source Pages":        p.source_file_pages ?? 0,
         "Task Type":           t?.task_types?.name ?? "—",
         "Work Type":           t?.work_type ?? "—",
@@ -117,7 +116,7 @@ function buildRows(projects: Project[], months: MonthYear[]) {
   return rows;
 }
 
-const COL_WIDTHS = [22, 30, 22, 16, 30, 14, 13, 18, 12, 22, 11, 13, 13, 30];
+const COL_WIDTHS = [22, 30, 22, 16, 13, 18, 12, 22, 11, 13, 13, 30];
 
 export default function ExportReportButton() {
   const now = new Date();
