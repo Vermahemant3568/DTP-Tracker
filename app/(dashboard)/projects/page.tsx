@@ -97,6 +97,7 @@ const EMPTY_FILTERS = {
   client:      "all",
   coordinator: "all",
   month:       "all",
+  revisions:   "all",
 };
 
 type Filters = typeof EMPTY_FILTERS;
@@ -169,6 +170,8 @@ function ProjectsPage() {
         const m = String(parseInt(filters.month)).padStart(2, "0");
         if (p.received_date.slice(5, 7) !== m) return false;
       }
+      if (filters.revisions === "with" && (p.total_revision_pages ?? 0) === 0) return false;
+      if (filters.revisions === "without" && (p.total_revision_pages ?? 0) > 0) return false;
       if (q && !p.project_name.toLowerCase().includes(q) && !p.project_code.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -271,6 +274,13 @@ function ProjectsPage() {
             {MONTHS.map((m, i) => <option key={i + 1} value={String(i + 1)}>{m}</option>)}
           </FilterSelect>
 
+          {/* Revisions */}
+          <FilterSelect value={filters.revisions} onChange={v => set("revisions", v)}>
+            <option value="all">All Projects</option>
+            <option value="with">With Revisions</option>
+            <option value="without">Without Revisions</option>
+          </FilterSelect>
+
           {/* Clear */}
           {hasFilters && (
             <button onClick={clearAll}
@@ -286,7 +296,6 @@ function ProjectsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-slate-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  <th className="px-5 py-3 whitespace-nowrap">Code</th>
                   <th className="px-5 py-3 whitespace-nowrap">Project Name</th>
                   <th className="px-5 py-3 whitespace-nowrap">Client</th>
                   <th className="px-5 py-3 whitespace-nowrap">Coordinator</th>
@@ -294,6 +303,7 @@ function ProjectsPage() {
                   <th className="px-5 py-3 whitespace-nowrap">Target Langs</th>
                   <th className="px-5 py-3 whitespace-nowrap">Src Pages</th>
                   <th className="px-5 py-3 whitespace-nowrap">Task Pages</th>
+                  <th className="px-5 py-3 whitespace-nowrap">Rev Pages</th>
                   <th className="px-5 py-3 whitespace-nowrap">Received</th>
                   <th className="px-5 py-3 whitespace-nowrap">Status</th>
                   <th className="px-5 py-3 text-right whitespace-nowrap">Actions</th>
@@ -334,10 +344,7 @@ function ProjectsPage() {
                         className={`${rowBg} hover:bg-blue-50/40 transition-colors cursor-pointer group border-b border-gray-100 last:border-0`}
                         onClick={() => router.push(`/projects/${project.id}`)}
                       >
-                        <td className="px-5 py-3.5 text-xs text-indigo-400 font-mono font-semibold whitespace-nowrap">
-                          {project.project_code}
-                        </td>
-                        <td className="px-5 py-3.5 font-semibold text-gray-800 max-w-[200px] truncate">
+                        <td className="px-5 py-3.5 font-semibold text-gray-800 max-w-[320px] truncate">
                           {project.project_name}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
@@ -378,6 +385,11 @@ function ProjectsPage() {
                         <td className="px-5 py-3.5 text-xs font-medium">
                           {(project.total_task_pages ?? 0) > 0
                             ? <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md ring-1 ring-indigo-200">{project.total_task_pages}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-5 py-3.5 text-xs font-medium">
+                          {(project.total_revision_pages ?? 0) > 0
+                            ? <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md ring-1 ring-amber-200">{project.total_revision_pages}</span>
                             : <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap text-xs">{fmt(project.received_date)}</td>

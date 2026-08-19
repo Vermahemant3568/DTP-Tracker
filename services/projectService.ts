@@ -88,15 +88,20 @@ export async function fetchProjects(): Promise<Project[]> {
         language_id,
         languages ( id, language_name )
       ),
-      tasks ( final_pages )
+      tasks (
+        final_pages,
+        task_revisions ( revision_pages )
+      )
     `)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
 
-  return ((data as unknown as (Project & { tasks?: { final_pages: number | null }[] })[]) ?? []).map(p => ({
+  type RawFetchTask = { final_pages: number | null; task_revisions?: { revision_pages: number }[] };
+  return ((data as unknown as (Project & { tasks?: RawFetchTask[] })[]) ?? []).map(p => ({
     ...p,
-    total_task_pages: (p.tasks ?? []).reduce((sum, t) => sum + (t.final_pages ?? 0), 0) || 0,
+    total_task_pages:     (p.tasks ?? []).reduce((sum, t) => sum + (t.final_pages ?? 0), 0) || 0,
+    total_revision_pages: (p.tasks ?? []).reduce((sum, t) => sum + (t.task_revisions ?? []).reduce((rs, r) => rs + (r.revision_pages ?? 0), 0), 0) || 0,
   }));
 }
 
@@ -217,9 +222,10 @@ export async function updateProjectStatus(
 // ── Fetch projects filtered by month + year ──────────────────
 
 export async function fetchProjectsByMonth(year: number, month: number): Promise<Project[]> {
-  const from = `${year}-${String(month).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const to   = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endMonth  = month === 12 ? 1 : month + 1;
+  const endYear   = month === 12 ? year + 1 : year;
+  const endDate   = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
 
   const { data, error } = await supabase
     .from("projects")
@@ -256,11 +262,11 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
         task_received_date,
         task_delivery_date,
         status,
-        task_types ( id, name )
+        created_at,
+        task_types ( id, name ),
+        task_revisions ( id, revision_pages, work_type, assigned_to_id, assigned_to_type, created_at )
       )
     `)
-    .gte("received_date", from)
-    .lte("received_date", to)
     .order("received_date", { ascending: true });
 
   if (error) throw new Error(error.message);
@@ -270,8 +276,9 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
     id: string; work_type: string; assigned_to_type: string;
     assigned_to_id: string | null; final_pages: number | null;
     source_pages: number | null; task_received_date: string | null;
-    task_delivery_date: string | null; status: string;
+    task_delivery_date: string | null; status: string; created_at: string;
     task_types: { id: string; name: string } | { id: string; name: string }[] | null;
+    task_revisions?: { id: string; revision_pages: number; work_type: string; assigned_to_id: string | null; assigned_to_type: string; created_at: string }[];
   };
   type RawProject = Project & { tasks?: RawTask[] };
   const projects = (data as unknown as RawProject[]) ?? [];
@@ -298,7 +305,7 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
   const empMap = new Map((empRes.data ?? []).map(e => [e.id, e.full_name]));
   const venMap = new Map((venRes.data ?? []).map(v => [v.id, v.company_name]));
 
-  return projects.map(p => ({
+  const result = projects.map(p => ({
     ...p,
     total_task_pages: (p.tasks ?? []).reduce((sum, t) => sum + (t.final_pages ?? 0), 0) || 0,
     tasks: (p.tasks ?? []).map(t => ({
@@ -309,6 +316,14 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
         : "—",
     })),
   }));
+
+  // Only return projects that have at least one task in the selected month
+  return result.filter(p =>
+    (p.tasks ?? []).some(t => {
+      const dateStr: string = (t.task_received_date as string | null) ?? (t.created_at as string)?.slice(0, 10) ?? "";
+      return dateStr.slice(0, 7) === `${year}-${String(month).padStart(2, "0")}`;
+    })
+  );
 }
 
 // ── Delete project ────────────────────────────────────────────

@@ -63,28 +63,53 @@ function presetLabel(preset: Preset) {
   return "Custom Range";
 }
 
-function buildRows(projects: Project[]) {
+function getTaskMonthKey(t: any): string {
+  const dateStr: string = t.task_received_date ?? (t.created_at as string)?.slice(0, 10) ?? "";
+  return dateStr.slice(0, 7);
+}
+
+function buildRows(projects: Project[], months: MonthYear[]) {
   const rows: Record<string, string | number>[] = [];
+
+  // Build a set of "YYYY-MM" strings for the selected months
+  const monthKeys = new Set(months.map(({ year, month }) =>
+    `${year}-${String(month).padStart(2, "0")}`
+  ));
 
   for (const p of projects) {
     const tasks = (p as any).tasks as any[] | undefined;
 
-    const taskRows = (!tasks || tasks.length === 0 ? [null] : tasks).map((t: any) => ({
-      "Client Name":         p.clients?.company_name ?? "—",
-      "Project Name":        p.project_name,
-      "Project Coordinator": p.employees?.full_name ?? "—",
-      "Source Language":     p.languages?.language_name ?? "—",
-      "Target Languages":    (p.project_target_languages ?? [])
-                               .map((tl: any) => tl.languages?.language_name)
-                               .filter(Boolean).join(", ") || "—",
-      "No. of Languages":    p.number_of_languages,
-      "Source Pages":        p.source_file_pages ?? 0,
-      "Task Type":           t?.task_types?.name ?? "—",
-      "Work Type":           t?.work_type ?? "—",
-      "Assigned To":         t?.assigned_name ?? "—",
-      "Task Pages":          t?.final_pages ?? 0,
-      "Notes":               p.project_notes ?? "",
-    }));
+    // Filter tasks to only those whose task_received_date (or created_at) falls in the selected months
+    const filteredTasks = (tasks ?? []).filter((t: any) => monthKeys.has(getTaskMonthKey(t)));
+
+    const taskRows = (filteredTasks.length === 0 ? [null] : filteredTasks).map((t: any) => {
+      // Only count revision pages whose created_at falls in the same month as the task
+      const taskMonthKey = t ? getTaskMonthKey(t) : null;
+      const revisionPages = taskMonthKey
+        ? (t?.task_revisions ?? []).filter((r: any) =>
+            (r.created_at as string)?.slice(0, 7) === taskMonthKey
+          ).reduce((s: number, r: any) => s + (r.revision_pages ?? 0), 0)
+        : 0;
+
+      return {
+        "Client Name":         p.clients?.company_name ?? "—",
+        "Project Name":        p.project_name,
+        "Project Coordinator": p.employees?.full_name ?? "—",
+        "Source Language":     p.languages?.language_name ?? "—",
+        "Target Languages":    (p.project_target_languages ?? [])
+                                 .map((tl: any) => tl.languages?.language_name)
+                                 .filter(Boolean).join(", ") || "—",
+        "No. of Languages":    p.number_of_languages,
+        "Source Pages":        p.source_file_pages ?? 0,
+        "Task Type":           t?.task_types?.name ?? "—",
+        "Work Type":           t?.work_type ?? "—",
+        "Assigned To":         t?.assigned_name ?? "—",
+        "Task Pages":          t?.final_pages ?? 0,
+        "Revision Pages":      revisionPages,
+        "Total Pages":         (t?.final_pages ?? 0) + revisionPages,
+        "Notes":               p.project_notes ?? "",
+      };
+    });
 
     rows.push(...taskRows);
   }
@@ -92,7 +117,7 @@ function buildRows(projects: Project[]) {
   return rows;
 }
 
-const COL_WIDTHS = [22, 30, 22, 16, 30, 14, 13, 18, 12, 22, 11, 30];
+const COL_WIDTHS = [22, 30, 22, 16, 30, 14, 13, 18, 12, 22, 11, 13, 13, 30];
 
 export default function ExportReportButton() {
   const now = new Date();
@@ -138,23 +163,22 @@ export default function ExportReportButton() {
 
       if (months.length === 1) {
         // Single month → one sheet
-        const ws = XLSX.utils.json_to_sheet(buildRows(unique));
+        const ws = XLSX.utils.json_to_sheet(buildRows(unique, months));
         ws["!cols"] = COL_WIDTHS.map(wch => ({ wch }));
         XLSX.utils.book_append_sheet(wb, ws, `${MONTHS[months[0].month - 1]} ${months[0].year}`);
       } else {
         // Multi-month → one sheet per month + a combined summary sheet
         for (const { month, year } of months) {
-          const monthProjects = unique.filter(p => {
-            const m = parseInt(p.received_date.slice(5, 7));
-            const y = parseInt(p.received_date.slice(0, 4));
-            return m === month && y === year;
-          });
-          const ws = XLSX.utils.json_to_sheet(buildRows(monthProjects));
+          const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+          const monthProjects = unique.filter(p =>
+            ((p as any).tasks ?? []).some((t: any) => getTaskMonthKey(t) === monthKey)
+          );
+          const ws = XLSX.utils.json_to_sheet(buildRows(monthProjects, [{ month, year }]));
           ws["!cols"] = COL_WIDTHS.map(wch => ({ wch }));
           XLSX.utils.book_append_sheet(wb, ws, `${MONTHS[month - 1].slice(0, 3)} ${year}`);
         }
         // Summary sheet
-        const summaryWs = XLSX.utils.json_to_sheet(buildRows(unique));
+        const summaryWs = XLSX.utils.json_to_sheet(buildRows(unique, months));
         summaryWs["!cols"] = COL_WIDTHS.map(wch => ({ wch }));
         XLSX.utils.book_append_sheet(wb, summaryWs, "All Projects");
       }

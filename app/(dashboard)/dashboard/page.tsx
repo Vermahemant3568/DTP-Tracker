@@ -305,28 +305,32 @@ export default function DashboardPage() {
 
               {/* Pages */}
               <MonthCard accent="border-blue-500">
-                <CardHeader icon={<TrendingUp size={17} className="text-blue-600" />} label="Pages This Month" iconBg="bg-blue-50" />
-                <p className="text-3xl font-extrabold text-gray-900 tabular-nums">{data.monthlyPages.toLocaleString()}</p>
-                <p className="text-xs text-gray-400 mt-0.5">total production pages</p>
+                <div className="cursor-pointer" onClick={() => router.push("/projects")}>
+                  <CardHeader icon={<TrendingUp size={17} className="text-blue-600" />} label="Total Pages This Month" iconBg="bg-blue-50" />
+                  <p className="text-3xl font-extrabold text-gray-900 tabular-nums">{data.monthlyPages.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">total production pages</p>
+                </div>
                 <SplitBlock inhouse={data.monthlyInhousePages} vendor={data.monthlyVendorPages} />
               </MonthCard>
 
               {/* Revisions */}
               <MonthCard accent="border-amber-500">
-                <CardHeader icon={<RefreshCw size={17} className="text-amber-600" />} label="Revisions This Month" iconBg="bg-amber-50" />
-                <div className="flex items-end gap-2.5">
-                  <p className="text-3xl font-extrabold text-gray-900 tabular-nums">{data.monthlyRevisionPages.toLocaleString()}</p>
-                  <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-600">
-                    {data.monthlyRevisionCount} rev{data.monthlyRevisionCount !== 1 ? "s" : ""}
-                  </span>
+                <div className="cursor-pointer" onClick={() => router.push("/projects")}>
+                  <CardHeader icon={<RefreshCw size={17} className="text-amber-600" />} label="Total Revisions This Month" iconBg="bg-amber-50" />
+                  <div className="flex items-end gap-2.5">
+                    <p className="text-3xl font-extrabold text-gray-900 tabular-nums">{data.monthlyRevisionPages.toLocaleString()}</p>
+                    <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-600">
+                      {data.monthlyRevisionCount} rev{data.monthlyRevisionCount !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">total revision pages</p>
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5">total revision pages</p>
                 <SplitBlock inhouse={data.monthlyRevisionInhousePages} vendor={data.monthlyRevisionVendorPages} />
               </MonthCard>
 
               {/* Tasks */}
               <MonthCard accent="border-emerald-500">
-                <CardHeader icon={<Loader2 size={17} className="text-emerald-600" />} label="Tasks This Month" iconBg="bg-emerald-50" />
+                <CardHeader icon={<Loader2 size={17} className="text-emerald-600" />} label="Total Tasks This Month" iconBg="bg-emerald-50" />
                 <p className="text-3xl font-extrabold text-gray-900 tabular-nums">{totalMonthTasks.toLocaleString()}</p>
                 <p className="text-xs text-gray-400 mt-0.5">tasks created</p>
 

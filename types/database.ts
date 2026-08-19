@@ -91,6 +91,7 @@ export interface Project {
   created_at:          string;
   updated_at:          string;
   total_task_pages?:     number;
+  total_revision_pages?: number;
   // Joined
   clients?:                  Pick<Client,   "id" | "company_name">   | null;
   employees?:                Pick<Employee, "id" | "full_name">       | null;

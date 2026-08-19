@@ -98,30 +98,18 @@ export async function fetchDashboardData(year: number, month: number): Promise<D
   const monthlyTasksInProgress = monthlyTasks.filter(t => t.status === "in_progress").length;
   const monthlyTasksCompleted = monthlyTasks.filter(t => t.status === "completed").length;
 
-  // Per task type — include revision pages belonging to tasks of that type
-  const taskRevisionsByTaskId = new Map<string, { inhouse: number; vendor: number }>();
-  allRevisions.forEach(r => {
-    const existing = taskRevisionsByTaskId.get(r.task_id) ?? { inhouse: 0, vendor: 0 };
-    if (r.work_type === "Inhouse") existing.inhouse += r.revision_pages ?? 0;
-    else existing.vendor += r.revision_pages ?? 0;
-    taskRevisionsByTaskId.set(r.task_id, existing);
-  });
-
+  // Per task type — task pages only (revisions are shown separately in the Revisions card)
   const taskTypes = taskTypesRes.data ?? [];
   const taskTypeSummaries: TaskTypeSummary[] = taskTypes.map(tt => {
     const tasks = monthlyTasks.filter(t => t.task_type_id === tt.id);
-    const taskPages = tasks.reduce((s, t) => s + (t.final_pages ?? 0), 0);
-    const taskInhouse = tasks.filter(t => t.work_type === "Inhouse").reduce((s, t) => s + (t.final_pages ?? 0), 0);
-    const taskVendor = tasks.filter(t => t.work_type === "Vendor").reduce((s, t) => s + (t.final_pages ?? 0), 0);
-    // Add revision pages for tasks of this type that fall in this month
-    const revInhouse = tasks.reduce((s, t) => s + (taskRevisionsByTaskId.get(t.id)?.inhouse ?? 0), 0);
-    const revVendor  = tasks.reduce((s, t) => s + (taskRevisionsByTaskId.get(t.id)?.vendor  ?? 0), 0);
+    const inhousePages = tasks.filter(t => t.work_type === "Inhouse").reduce((s, t) => s + (t.final_pages ?? 0), 0);
+    const vendorPages  = tasks.filter(t => t.work_type === "Vendor").reduce((s, t) => s + (t.final_pages ?? 0), 0);
     return {
       id: tt.id,
       name: tt.name,
-      totalPages:   taskPages + revInhouse + revVendor,
-      inhousePages: taskInhouse + revInhouse,
-      vendorPages:  taskVendor  + revVendor,
+      totalPages:   inhousePages + vendorPages,
+      inhousePages,
+      vendorPages,
       taskCount: tasks.length,
     };
   });
