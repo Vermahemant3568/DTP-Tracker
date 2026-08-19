@@ -45,6 +45,7 @@ const schema = z.object({
 );
 
 type FormValues = z.input<typeof schema>;
+type FormOutput = z.output<typeof schema>;
 
 const defaultValues: FormValues = {
   revision_type:    "General",
@@ -140,7 +141,7 @@ export default function RevisionModal({
     }
   }, [revision, reset]);
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (values: FormOutput) => {
     try {
       if (isEdit) {
         await updateRevision(revision!.id, values);
