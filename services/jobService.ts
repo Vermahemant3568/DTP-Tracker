@@ -19,6 +19,7 @@ export async function fetchJobs(): Promise<Job[]> {
           id, task_id, language_id,
           languages ( id, language_name )
         ),
+        task_revisions ( id, revision_pages, rate_per_page, payment_status ),
         projects (
           id, project_code, project_name, coordinator_id,
           clients ( id, company_name )
@@ -41,7 +42,7 @@ export async function fetchJobs(): Promise<Job[]> {
     .filter((j) => j.tasks?.projects?.coordinator_id)
     .map((j) => j.tasks!.projects!.coordinator_id as string);
 
-  const uniqueEmpIds   = [...new Set([...empIds, ...coordIds])];
+  const uniqueEmpIds = [...new Set([...empIds, ...coordIds])];
 
   const [empMap, vndMap] = await Promise.all([
     uniqueEmpIds.length > 0
@@ -49,8 +50,10 @@ export async function fetchJobs(): Promise<Job[]> {
           .then(({ data: d }) => Object.fromEntries((d ?? []).map((e) => [e.id, e.full_name])))
       : Promise.resolve({} as Record<string, string>),
     vndIds.length > 0
-      ? supabase.from("vendors").select("id, company_name").in("id", vndIds)
-          .then(({ data: d }) => Object.fromEntries((d ?? []).map((v) => [v.id, v.company_name])))
+      ? supabase.from("vendors").select("id, company_name, contact_name").in("id", vndIds)
+          .then(({ data: d }) => Object.fromEntries(
+            (d ?? []).map((v) => [v.id, v.contact_name ? `${v.contact_name} (${v.company_name})` : v.company_name])
+          ))
       : Promise.resolve({} as Record<string, string>),
   ]);
 

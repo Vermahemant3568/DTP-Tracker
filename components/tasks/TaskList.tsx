@@ -150,6 +150,8 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                       : null
                   );
                   const taskAmount = calcAmount(finalPages, task.rate_per_page);
+                  const revAmount  = revisions.reduce((s, r) => s + (calcAmount(r.revision_pages, r.rate_per_page) ?? 0), 0);
+                  const totalAmount = (taskAmount ?? 0) + revAmount;
                   const typeName   = task.task_types?.name ?? "";
                   const typeStyle  = TASK_TYPE_STYLES[typeName] ?? TASK_TYPE_DEFAULT;
                   const rowBg      = idx % 2 === 0 ? "bg-white" : "bg-slate-50/60";
@@ -225,8 +227,18 @@ export default function TaskList({ tasks, loading, onEdit, onDelete, onRefresh, 
                           {task.rate_per_page ? `₹${task.rate_per_page}` : "—"}
                         </td>
 
-                        <td className="px-4 py-3 text-right text-xs font-semibold text-gray-900">
-                          {taskAmount ? `₹${taskAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—"}
+                        <td className="px-4 py-3 text-right text-xs">
+                          <div className="flex flex-col items-end gap-0.5">
+                            {taskAmount ? (
+                              <span className="text-gray-600">T: ₹{taskAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            ) : null}
+                            {revAmount > 0 ? (
+                              <span className="text-amber-600 font-medium">R: ₹{revAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            ) : null}
+                            {taskAmount && revAmount > 0 ? (
+                              <span className="font-bold text-gray-900 border-t border-gray-200 pt-0.5 mt-0.5">₹{totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            ) : (!taskAmount && revAmount === 0) ? <span className="text-gray-300">—</span> : null}
+                          </div>
                         </td>
 
                         <td className="px-4 py-3 whitespace-nowrap">

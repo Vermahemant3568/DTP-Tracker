@@ -39,7 +39,7 @@ export async function fetchTasks(projectId: string): Promise<Task[]> {
         languages ( id, language_name )
       ),
       task_revisions (
-        id, task_id, work_type, assigned_to_id, assigned_to_type,
+        id, task_id, revision_type, work_type, assigned_to_id, assigned_to_type,
         revision_pages, rate_per_page, payment_status, revision_notes,
         created_at, updated_at
       )

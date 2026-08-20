@@ -258,6 +258,8 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
         assigned_to_type,
         assigned_to_id,
         final_pages,
+        rate_per_page,
+        payment_status,
         source_pages,
         task_received_date,
         task_delivery_date,
@@ -265,7 +267,7 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
         created_at,
         task_types ( id, name ),
         task_languages ( language_id, languages ( language_name ) ),
-        task_revisions ( id, revision_pages, work_type, assigned_to_id, assigned_to_type, created_at )
+        task_revisions ( id, revision_type, revision_pages, rate_per_page, payment_status, revision_notes, work_type, assigned_to_id, assigned_to_type, created_at )
       )
     `)
     .order("received_date", { ascending: true });
@@ -276,10 +278,11 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
   type RawTask = {
     id: string; work_type: string; assigned_to_type: string;
     assigned_to_id: string | null; final_pages: number | null;
+    rate_per_page: number | null; payment_status: string;
     source_pages: number | null; task_received_date: string | null;
     task_delivery_date: string | null; status: string; created_at: string;
     task_types: { id: string; name: string } | { id: string; name: string }[] | null;
-    task_revisions?: { id: string; revision_pages: number; work_type: string; assigned_to_id: string | null; assigned_to_type: string; created_at: string }[];
+    task_revisions?: { id: string; revision_type: string; revision_pages: number; rate_per_page: number | null; payment_status: string; revision_notes: string | null; work_type: string; assigned_to_id: string | null; assigned_to_type: string; created_at: string }[];
   };
   type RawProject = Project & { tasks?: RawTask[] };
   const projects = (data as unknown as RawProject[]) ?? [];
@@ -288,9 +291,16 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
   const vendorIds   = new Set<string>();
   projects.forEach(p =>
     (p.tasks ?? []).forEach(t => {
-      if (!t.assigned_to_id) return;
-      if (t.assigned_to_type === "Employee") employeeIds.add(t.assigned_to_id);
-      else vendorIds.add(t.assigned_to_id);
+      if (t.assigned_to_id) {
+        if (t.assigned_to_type === "Employee") employeeIds.add(t.assigned_to_id);
+        else vendorIds.add(t.assigned_to_id);
+      }
+      // Also collect revision assignees
+      (t.task_revisions ?? []).forEach((r: any) => {
+        if (!r.assigned_to_id) return;
+        if (r.assigned_to_type === "Employee") employeeIds.add(r.assigned_to_id);
+        else vendorIds.add(r.assigned_to_id);
+      });
     })
   );
 
@@ -299,12 +309,15 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
       ? supabase.from("employees").select("id, full_name").in("id", [...employeeIds])
       : Promise.resolve({ data: [] as { id: string; full_name: string }[], error: null }),
     vendorIds.size > 0
-      ? supabase.from("vendors").select("id, company_name").in("id", [...vendorIds])
-      : Promise.resolve({ data: [] as { id: string; company_name: string }[], error: null }),
+      ? supabase.from("vendors").select("id, company_name, contact_name").in("id", [...vendorIds])
+      : Promise.resolve({ data: [] as { id: string; company_name: string; contact_name: string | null }[], error: null }),
   ]);
 
   const empMap = new Map((empRes.data ?? []).map(e => [e.id, e.full_name]));
-  const venMap = new Map((venRes.data ?? []).map(v => [v.id, v.company_name]));
+  const venMap = new Map((venRes.data ?? []).map(v => [
+    v.id,
+    v.contact_name ? `${v.contact_name} (${v.company_name})` : v.company_name,
+  ]));
 
   const result = projects.map(p => ({
     ...p,
@@ -315,6 +328,12 @@ export async function fetchProjectsByMonth(year: number, month: number): Promise
       assigned_name: t.assigned_to_id
         ? (t.assigned_to_type === "Employee" ? empMap.get(t.assigned_to_id) : venMap.get(t.assigned_to_id)) ?? "—"
         : "—",
+      task_revisions: (t.task_revisions ?? []).map((r: any) => ({
+        ...r,
+        assigned_name: r.assigned_to_id
+          ? (r.assigned_to_type === "Employee" ? empMap.get(r.assigned_to_id) : venMap.get(r.assigned_to_id)) ?? "—"
+          : "—",
+      })),
     })),
   }));
 
